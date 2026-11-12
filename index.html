@@ -252,10 +252,10 @@ html[lang="en"] #layers{width:76px}
   <div class="dlg-f"><button id="warnClose">Закрыть</button></div>
 </dialog>
 
-<!-- Версии зафиксированы. Классические (не-модульные) сборки, работают через file://. Нужен доступ к CDN при открытии; сами игровые данные никуда не уходят. -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.34/dist/zip.min.js"></script>
+<!-- Библиотеки хранятся в репозитории: просмотрщик не зависит от внешнего CDN. -->
+<script src="./vendor/three.min.js"></script>
+<script src="./vendor/OrbitControls.js"></script>
+<script src="./vendor/zip.min.js"></script>
 
 <script>
 'use strict';
