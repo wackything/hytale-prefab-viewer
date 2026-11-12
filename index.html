@@ -1,0 +1,2274 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hytale Prefab Viewer</title>
+<style>
+:root{
+  --bg:#16171c;--pane:#1c1e25;--panel:#262932;--panel2:#30343f;--line:#ffffff17;
+  --txt:#ece9e4;--dim:#9b9ca8;--acc:#ffb36b;--acc-ink:#2a1a08;--acc2:#8fd3c0;--bad:#ff8f86;--ok:#9ad8a0;
+  --r:14px;
+  font-family:"SF Pro Rounded","Nunito","Segoe UI",system-ui,-apple-system,sans-serif;font-size:13px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);overflow:hidden}
+body{display:flex;flex-direction:column}
+[hidden]{display:none!important}
+button,select,input{font:inherit;color:inherit}
+*::-webkit-scrollbar{width:12px;height:12px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:#ffffff40;border-radius:10px;border:3px solid transparent;background-clip:padding-box;min-height:36px}
+*::-webkit-scrollbar-thumb:hover{background:#ffb36bb3;border:3px solid transparent;background-clip:padding-box}
+*::-webkit-scrollbar-corner{background:transparent}
+svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+button{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:0;border-radius:999px;padding:6px 13px;cursor:pointer;transition:background .15s,transform .08s,color .15s}
+button:hover{background:#3b404d}
+button:active{transform:scale(.97)}
+button.on{background:var(--acc);color:var(--acc-ink)}
+button.acc{background:var(--acc);color:var(--acc-ink);font-weight:600}
+button.acc:hover{background:#ffc388}
+button.flat{background:transparent;padding:5px 8px;color:var(--dim)}
+button.flat:hover{background:var(--panel2);color:var(--txt)}
+button:disabled{opacity:.4;cursor:default}
+code{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#ffd9ae}
+.dim,.k{color:var(--dim)}
+.bad{color:var(--bad)}.ok{color:var(--ok)}
+.sp{flex:1}
+
+/* верхняя панель */
+#bar{display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin-right:4px}
+.brand svg{width:20px;height:20px;color:var(--acc)}
+.file{color:var(--dim);max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grp{display:inline-flex;gap:4px;padding:3px;background:var(--pane);border-radius:999px}
+.grp button{background:transparent;padding:5px 11px}
+.grp button:hover{background:var(--panel2)}
+.grp button.on{background:var(--acc)}
+#resDot{font-size:10px;line-height:1}
+#warnN{font-variant-numeric:tabular-nums}
+
+/* рабочая область */
+#main{flex:1;display:flex;min-height:0;padding:0 10px 4px;gap:0}
+.pane{position:relative;min-width:140px;overflow:hidden;background:var(--pane);border-radius:18px}
+#pane3d{flex:1.5}
+#pane2d{flex:1}
+.pane canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#split{width:10px;cursor:col-resize;flex:none;position:relative}
+#split::after{content:"";position:absolute;left:4px;top:42%;bottom:42%;width:3px;border-radius:2px;background:var(--line);transition:background .15s}
+#split:hover::after{background:var(--acc)}
+.ov{position:absolute;pointer-events:none;color:var(--dim);font-size:11.5px}
+#hint3d{left:50%;transform:translateX(-50%);bottom:10px;opacity:.75;white-space:nowrap}
+#tag2d{left:14px;top:10px}
+#coord2d{right:12px;bottom:8px}
+#cross{left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:#ffffffcc;box-shadow:0 0 0 1px #000a}
+#flyHud{left:50%;transform:translateX(-50%);bottom:34px;color:var(--txt);background:#16171ccc;padding:5px 14px;border-radius:999px;font-size:12px;white-space:nowrap}
+.tools2d{position:absolute;right:10px;top:8px;display:flex;gap:4px}
+.tools2d button{background:#16171c99;padding:4px 11px;backdrop-filter:blur(6px)}
+.tools2d button:hover{background:#30343fcc}
+
+/* пустое состояние */
+#empty3d{inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.empty-card{pointer-events:auto;text-align:center;padding:26px 34px;border-radius:22px;background:#ffffff08;border:2px dashed #ffffff22;max-width:360px}
+.empty-card svg{width:38px;height:38px;color:var(--acc);margin-bottom:6px}
+.empty-card p{margin:6px 0 14px;color:var(--dim);font-size:13px;line-height:1.5}
+
+/* слои: плавающая вертикальная панель */
+#layers{position:absolute;left:12px;top:50%;transform:translateY(-50%);height:min(78%,460px);min-height:260px;width:64px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;background:#16171cd9;backdrop-filter:blur(8px);border-radius:22px;z-index:3}
+#layers .lbl{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)}
+#layerY{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+#layers button.step{padding:4px 0;width:34px;justify-content:center;border-radius:12px}
+#layer{writing-mode:vertical-lr;direction:rtl;width:26px;flex:1;min-height:60px;accent-color:var(--acc);cursor:pointer;margin:0}
+#layers .cnt{font-size:11px;color:var(--dim);text-align:center;line-height:1.25}
+#layers .cnt b{color:var(--txt);font-variant-numeric:tabular-nums}
+#modeSeg{display:flex;flex-direction:column;gap:3px;width:100%}
+#modeSeg button{justify-content:center;padding:4px 0;font-size:11.5px;border-radius:10px;background:transparent;color:var(--dim)}
+#modeSeg button:hover{background:var(--panel2);color:var(--txt)}
+#modeSeg button.on{background:var(--acc);color:var(--acc-ink)}
+
+/* плавающие карточки */
+.card{position:absolute;background:#16171ce6;backdrop-filter:blur(8px);border-radius:16px;padding:10px 14px;line-height:1.55;z-index:2}
+#selCard{left:92px;bottom:36px;max-width:min(520px,calc(100% - 110px));max-height:46%;overflow:auto}
+#rulerCard{left:12px;bottom:30px;max-width:calc(100% - 24px)}
+.card .ch{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.card .ch b{font-size:12px;letter-spacing:.4px;color:var(--acc)}
+.card .x{padding:1px 8px}
+
+/* строка состояния */
+#status{padding:4px 18px 8px;color:var(--dim);font-size:12px;min-height:26px;display:flex;gap:14px;align-items:center;white-space:nowrap;overflow:hidden}
+#status b{color:var(--txt);font-weight:600}
+#infoBuild{display:flex;gap:16px;align-items:center}
+
+/* смета */
+#bom{width:330px;flex:none;margin-left:10px;background:var(--pane);border-radius:18px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#bom .bh{display:flex;align-items:center;gap:6px;padding:12px 14px 8px;font-size:15px}
+#bom .bc{display:flex;gap:6px;align-items:center;padding:4px 12px 8px;flex-wrap:wrap}
+#bom input[type=search]{flex:1;min-width:90px;background:var(--panel2);border:0;border-radius:999px;padding:5px 12px;outline:none}
+#bom select{background:var(--panel2);border:0;border-radius:999px;padding:5px 8px}
+#bomScope{display:inline-flex;gap:2px;padding:2px;background:var(--panel);border-radius:999px}
+#bomScope button{padding:3px 10px;background:transparent}
+#bomScope button.on{background:var(--acc)}
+#bomSum{padding:2px 14px 8px;line-height:1.6}
+#bomSum b{font-variant-numeric:tabular-nums}
+#bomList{flex:1;overflow:auto}
+#bomList table td{padding:4px 8px;vertical-align:middle;border-bottom:1px solid var(--line)}
+#bomList tr.r{cursor:pointer}
+#bomList tr.r:hover{background:#ffffff0a}
+#bomList{overflow-x:hidden}
+#bomList table{table-layout:fixed;width:100%}
+#bomList td:last-child{overflow-wrap:anywhere;word-break:break-word}
+#bomList .nm{font-weight:600;line-height:1.3}
+#bomList .q{color:var(--acc);font-weight:700;font-variant-numeric:tabular-nums;margin-top:1px}
+#bomList td:first-child{width:40px;vertical-align:top;padding-top:7px}
+#bomList canvas{position:static;width:24px;height:24px;image-rendering:pixelated;display:block;background:#12131a;border-radius:6px}
+#bom .bf{display:flex;gap:6px;padding:10px 12px}
+
+#drop{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;font-size:22px;color:var(--acc);border:3px dashed var(--acc);z-index:50;pointer-events:none}
+dialog{background:var(--panel);color:var(--txt);border:0;border-radius:20px;padding:0;max-width:760px;width:92vw;box-shadow:0 20px 60px #000a}
+dialog::backdrop{background:#000b}
+.dlg-h{padding:16px 20px 6px;font-size:17px;font-weight:700}
+.dlg-b{padding:8px 20px 14px;max-height:70vh;overflow:auto;line-height:1.55}
+.dlg-f{padding:10px 20px 16px;display:flex;gap:8px;justify-content:flex-end}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:8px 0}
+.bar>i{display:block;height:100%;width:0;background:var(--acc);transition:width .1s}
+table{border-collapse:collapse;width:100%}
+td,th{padding:3px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:500}
+.chip{display:inline-block;padding:0 8px;border-radius:9px;background:var(--panel2);font-size:11px}
+ul.l{margin:4px 0;padding-left:18px}
+html[lang="en"] #layers{width:76px}
+</style>
+</head>
+<body>
+
+<header id="bar">
+  <div class="brand"><svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10"/></svg>Prefab Viewer</div>
+  <button id="btnOpen" class="acc"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Открыть префаб</button>
+  <span id="fileInfo" class="file">префаб не загружен</span>
+  <span class="sp"></span>
+  <span class="grp">
+    <button id="btnRuler" title="Линейка (R)"><svg viewBox="0 0 24 24"><path d="M3 17 17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></svg>Линейка</button>
+    <button id="btnLight" title="Освещение: объёмное с тенями / плоское (L)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Свет</button>
+    <button id="btnFly" title="Полёт от первого лица (F)"><svg viewBox="0 0 24 24"><path d="M21 3 3 10l7 3 3 7z"/></svg>Полёт</button>
+    <button id="btnCam" title="Вернуть камеру"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M5 10v9h14v-9"/></svg>Камера</button>
+  </span>
+  <span class="grp">
+    <button id="btnBom" title="Смета: сколько блоков и моделей нужно (B)"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Смета</button>
+    <button id="btnWarn" title="Предупреждения"><svg viewBox="0 0 24 24"><path d="M12 3 2 20h20zM12 10v4M12 17h.01"/></svg><b id="warnN">0</b></button>
+    <button id="btnRes" title="Ресурсы игры">Ресурсы <span id="resDot" class="bad">●</span></button>
+  </span>
+  <input type="file" id="fPrefab" accept=".json,.lpf" hidden>
+</header>
+
+<div id="main">
+  <section class="pane" id="pane3d">
+    <canvas id="cv3d"></canvas>
+
+    <aside id="layers">
+      <span class="lbl">слой</span>
+      <span id="layerY">–</span>
+      <button class="step" id="next" title="Слой выше (] или PageUp)"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+      <input type="range" id="layer" min="0" max="0" value="0" step="1" disabled>
+      <button class="step" id="prev" title="Слой ниже ([ или PageDown)"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="cnt"><b id="layerCnt">–</b> бл.<br><span id="yRange">–</span></div>
+      <div id="modeSeg">
+        <button data-m="all" class="on" title="Показать всю постройку">Всё</button>
+        <button data-m="upto" title="Показать всё до выбранного слоя включительно">Срез</button>
+        <button data-m="only" title="Только выбранный слой">Слой</button>
+      </div>
+    </aside>
+
+    <div class="ov" id="hint3d">ЛКМ — вращать · ПКМ — сдвиг · колесо — масштаб · клик — выбрать · оси: <span style="color:#f77">X</span> <span style="color:#7d7">Y</span> <span style="color:#79f">Z</span></div>
+    <div class="ov" id="cross" hidden></div>
+    <div class="ov" id="flyHud" hidden></div>
+
+    <div class="ov" id="empty3d">
+      <div class="empty-card">
+        <svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10"/></svg>
+        <p>Перетащите сюда файл <code>.prefab.json</code><br>или выберите его вручную</p>
+        <button id="btnOpen2" class="acc">Открыть префаб</button>
+      </div>
+    </div>
+
+    <div class="card" id="selCard" hidden><div id="infoSel"></div></div>
+  </section>
+
+  <div id="split"></div>
+
+  <section class="pane" id="pane2d">
+    <canvas id="cv2d"></canvas>
+    <div class="ov" id="tag2d">Вид сверху · X → · Z ↓</div>
+    <div class="tools2d"><button id="z2in" title="Приблизить">+</button><button id="z2out" title="Отдалить">−</button><button id="btnFit" title="Вписать постройку в окно">Вписать</button></div>
+    <div class="ov" id="coord2d"></div>
+    <div class="card" id="rulerCard" hidden>
+      <div class="ch"><b>ЛИНЕЙКА</b><span class="sp"></span><button class="flat" id="btnRulerReset" title="Сбросить измерение и выйти (Esc)">Сбросить</button></div>
+      <div id="infoRuler"></div>
+    </div>
+  </section>
+
+  <aside id="bom" hidden>
+    <div class="bh"><b>Смета</b><span class="dim" id="bomScopeLbl"></span><span class="sp"></span><button class="flat" id="bomX" title="Свернуть">✕</button></div>
+    <div id="bomSum"></div>
+    <div class="bc">
+      <span id="bomScope"><button data-s="all" class="on">Вся постройка</button><button data-s="layer">Слой</button></span>
+      <select id="bomSort"><option value="count">по количеству</option><option value="name">по названию</option><option value="kind">по типу</option></select>
+      <input type="search" id="bomFind" placeholder="Поиск…">
+    </div>
+    <div id="bomList"></div>
+    <div class="bf"><button id="bomCopy">Копировать</button><button id="bomCsv">Скачать CSV</button></div>
+  </aside>
+</div>
+
+<footer id="status"><span id="infoBuild" class="dim">—</span></footer>
+
+<div id="drop">Отпустите .prefab.json</div>
+
+<dialog id="resDlg">
+  <div class="dlg-h">Ресурсы Hytale</div>
+  <div class="dlg-b">
+    <p>Выберите <code>Assets.zip</code> установленной игры или папку с уже извлечёнными ресурсами. Файлы читаются только локально и никуда не отправляются; архив целиком в память не загружается — читаются только нужные записи.</p>
+    <p class="dim">macOS: <code>~/Library/Application Support/Hytale/install/release/package/game/latest</code><br>
+    В Finder: «Перейти → Перейти к папке…» (⇧⌘G), вставьте путь. Клиентский Assets.zip может не содержать JSON-определений блоков — тогда выберите серверный архив или извлечённую папку; чего не хватает, будет показано ниже.</p>
+    <div class="row">
+      <button id="pickZip">Выбрать Assets.zip…</button>
+      <button id="pickDir">Выбрать папку…</button>
+      <button id="restore" hidden>Восстановить доступ</button>
+      <button id="forget">Забыть сохранённый источник</button>
+    </div>
+    <div class="bar"><i id="resBar"></i></div>
+    <div id="resStatus" class="dim">Источник не выбран.</div>
+    <div id="resReport"></div>
+    <p class="dim" style="font-size:12px">Биомное тонирование выбирается автоматически (биом Plains/Forest или первый найденный в <code>Server/HytaleGenerator/Biomes</code>, иначе #4CAF50) и множится на текстуры блоков с <code>BiomeTint</code>/<code>BiomeTint*</code>; явные <code>Tint</code>/<code>Tint*</code> применяются всегда. Значение <code>BiomeTint</code> трактуется как «тонировать» (любое &gt; 0 — полная сила), у массивов <code>Tint</code> берётся первый цвет — это предположения, в документации семантика не описана. Модели (<code>DrawType: Model</code>, <code>CubeWithModel</code>) строятся из <code>.blockymodel</code> в позе покоя, анимации блоков не воспроизводятся.</p>
+    <input type="file" id="fZip" accept=".zip" hidden>
+    <input type="file" id="fDir" webkitdirectory multiple hidden>
+  </div>
+  <div class="dlg-f"><button id="resClose">Закрыть</button></div>
+</dialog>
+
+<dialog id="warnDlg">
+  <div class="dlg-h">Предупреждения</div>
+  <div class="dlg-b" id="warnBody"></div>
+  <div class="dlg-f"><button id="warnClose">Закрыть</button></div>
+</dialog>
+
+<!-- Версии зафиксированы. Классические (не-модульные) сборки, работают через file://. Нужен доступ к CDN при открытии; сами игровые данные никуда не уходят. -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.34/dist/zip.min.js"></script>
+
+<script>
+'use strict';
+
+/* ===================== UI localization ===================== */
+const UI_LANG = /^ru(?:-|$)/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'ru' : 'en';
+const NUMBER_LOCALE = UI_LANG === 'ru' ? 'ru-RU' : 'en-US';
+document.documentElement.lang = UI_LANG;
+
+const EN_TEXT = {
+  'Открыть префаб': 'Open Prefab',
+  'Выбрать ': 'Choose ',
+  'Выбрать Assets.zip…': 'Choose Assets.zip…',
+  'Выбрать папку…': 'Choose folder…',
+  'или выберите его вручную': 'or choose it manually',
+  'префаб не загружен': 'No prefab loaded',
+  'Линейка': 'Measure',
+  'Освещение: объёмное с тенями / плоское (L)': 'Lighting: shaded / flat (L)',
+  'Свет': 'Lighting',
+  'Полёт от первого лица (F)': 'First-person fly mode (F)',
+  'Полёт': 'Fly',
+  'Вернуть камеру': 'Reset camera',
+  'Смета: сколько блоков и моделей нужно (B)': 'Build list: block and model counts (B)',
+  'Смета': 'Build List',
+  'Предупреждения': 'Warnings',
+  'Ресурсы игры': 'Game Assets',
+  'слой': 'LAYER',
+  'Слой выше (] или PageUp)': 'Next layer (] or PageUp)',
+  'Слой ниже ([ или PageDown)': 'Previous layer ([ or PageDown)',
+  'бл.': 'blocks',
+  'Показать всю постройку': 'Show the entire build',
+  'Показать всё до выбранного слоя включительно': 'Show everything up to the selected layer',
+  'Только выбранный слой': 'Show selected layer only',
+  'Всё': 'All',
+  'Срез': 'Up to layer',
+  'Слой': 'Layer only',
+  'ЛКМ — вращать · ПКМ — сдвиг · колесо — масштаб · клик — выбрать · оси:': 'LMB — rotate · RMB — pan · wheel — zoom · click — select · axes:',
+  'Перетащите сюда файл ': 'Drop a file here: ',
+  ' или выберите его вручную': ' or choose it manually',
+  'Открыть префаб': 'Open Prefab',
+  'Вид сверху': 'Top view',
+  'Приблизить': 'Zoom in',
+  'Отдалить': 'Zoom out',
+  'Вписать постройку в окно': 'Fit build to view',
+  'Вписать': 'Fit',
+  'ЛИНЕЙКА': 'MEASURE',
+  'Сбросить измерение и выйти (Esc)': 'Clear measurement and exit (Esc)',
+  'Сбросить': 'Reset',
+  'Свернуть': 'Collapse',
+  'Вся постройка': 'Entire build',
+  'по количеству': 'By count',
+  'по названию': 'By name',
+  'по типу': 'By type',
+  'Поиск…': 'Search…',
+  'Копировать': 'Copy',
+  'Скачать CSV': 'Export CSV',
+  'Отпустите .prefab.json': 'Drop .prefab.json to open',
+  'Ресурсы Hytale': 'Hytale Assets',
+  'Выберите ': 'Select ',
+  ' установленной игры или папку с уже извлечёнными ресурсами. Файлы читаются только локально и никуда не отправляются; архив целиком в память не загружается — читаются только нужные записи.': " from your Hytale installation, or a folder containing extracted assets. Files are read locally and are never uploaded. The entire archive is not loaded into memory; only the required entries are read.",
+  'В Finder: «Перейти → Перейти к папке…» (⇧⌘G), вставьте путь.': 'In Finder, choose Go → Go to Folder… (⇧⌘G) and paste the path.',
+  'Клиентский Assets.zip может не содержать JSON-определений блоков — тогда выберите серверный архив или извлечённую папку; чего не хватает, будет показано ниже.': 'The client Assets.zip may not contain the JSON block definitions. If some blocks are missing, select the server Assets.zip or an extracted resource folder instead. Missing files will be listed below.',
+  'Выбрать Assets.zip…': 'Choose Assets.zip…',
+  'Выбрать папку…': 'Choose folder…',
+  'Восстановить доступ': 'Restore access',
+  'Забыть сохранённый источник': 'Forget saved source',
+  'Источник не выбран.': 'No source selected.',
+  'Биомное тонирование выбирается автоматически (биом Plains/Forest или первый найденный в ': 'Biome tint is selected automatically (Plains/Forest biome, or the first one found in ',
+  ', иначе #4CAF50) и множится на текстуры блоков с ': '; otherwise #4CAF50) and multiplied into block textures with ',
+  '; явные ': '; explicit ',
+  ' применяются всегда. Значение ': ' are always applied. ',
+  ' трактуется как «тонировать» (любое ': ' is treated as a tint toggle (any value ',
+  ' > 0 — полная сила), у массивов ': ' greater than 0 means full strength). For arrays of ',
+  ' берётся первый цвет — это предположения, в документации семантика не описана. Модели (': ', only the first color is used. These are assumptions; the format documentation does not define the semantics. Models (',
+  ') строятся из ': ') are built from ',
+  ' в позе покоя, анимации блоков не воспроизводятся.': ' in their resting pose; block animations are not played.',
+  'Выбрать Assets.zip…': 'Choose Assets.zip…',
+  'Закрыть': 'Close',
+  'Предупреждения': 'Warnings',
+  'Не загрузились библиотеки Three.js / zip.js с CDN (jsdelivr). Нужен доступ к интернету только для загрузки самих библиотек; игровые данные никуда не отправляются.': 'Could not load the Three.js / zip.js libraries from the jsDelivr CDN. An internet connection is only needed to load these libraries; game data is never uploaded.',
+  'Сообщение': 'Message',
+  'Кол-во': 'Count',
+  'Примеры': 'Examples',
+  'Префаб и блоки': 'Prefab and blocks',
+  'Ресурсы': 'Assets',
+  'Блоки без определения или текстур (': 'Blocks with missing definitions or textures (',
+  'ID блока': 'Block ID',
+  'Причина': 'Reason',
+  'Ячеек': 'Cells',
+  'Не найдены файлы текстур (': 'Missing texture files (',
+  'Предупреждений нет.': 'No warnings.',
+  'Корень файла — не JSON-объект': 'The file root is not a JSON object',
+  'В префабе нет массива "blocks"': 'The prefab has no "blocks" array',
+  'Неизвестное поле верхнего уровня (не обработано)': 'Unknown top-level field (ignored)',
+  'Версия формата отличается от 8, с которой проверялся просмотрщик': 'The format version differs from v8, the version this viewer was tested with',
+  'Сущности (entities) в этой версии не отображаются': 'Entities are not displayed in this version',
+  'Жидкости (fluids) в этой версии не отображаются': 'Fluids are not displayed in this version',
+  'Записи блоков без корректных x/y/z/name пропущены': 'Block entries with invalid x/y/z/name fields were skipped',
+  'Нецелые координаты блоков (ячейка берётся как floor)': 'Non-integer block coordinates (the cell position is rounded down)',
+  'Неизвестное поле в записи блока (не обработано)': 'Unknown field in block entry (ignored)',
+  'Циклическая ссылка Parent (': 'Circular Parent reference (',
+  'Parent не найден (blocktype)': 'Parent not found (blocktype)',
+  'Parent не найден (': 'Parent not found (',
+  'Состояние блока не найдено в определении': 'Block state not found in definition',
+  'Неизвестное поле в Textures (не обработано)': 'Unknown field in Textures (ignored)',
+  'папка': 'folder',
+  'Просмотр папки: ': 'Scanning folder: ',
+  ' файлов': ' files',
+  'Определения: ': 'Definitions: ',
+  'Не удалось разобрать JSON-определения': 'Could not parse JSON definitions',
+  ' файлов (': ' files (',
+  'Server/Item/Items/*.json — определения предметов/блоков (без них ID блоков не сопоставить с текстурами)': 'Server/Item/Items/*.json — item/block definitions (required to map block IDs to textures)',
+  'Server/Item/Block/*.json — определения типов блоков (возможно, не требуются, если Parent на них не ссылаются)': 'Server/Item/Block/*.json — block type definitions (may not be needed if no Parent references point to them)',
+  'Common/BlockTextures/ и Common/Blocks/ — текстуры блоков': 'Common/BlockTextures/ and Common/Blocks/ — block textures',
+  'Common/BlockTextures/ — каталог текстур блоков не найден': 'Common/BlockTextures/ — block texture directory not found',
+  'Common/**/*.blockymodel — модели (в этой версии не отображаются, но для будущей поддержки нужны)': 'Common/**/*.blockymodel — models (not displayed in this version, but required for future support)',
+  'Server/HytaleGenerator/Biomes/*.json — цвета биомов (тонирование возможно с цветом, выбранным вручную)': 'Server/HytaleGenerator/Biomes/*.json — biome colors (tinting can still use a manually selected color)',
+  'Server/Languages/*/*.lang — локализация (названия блоков не будут показаны, только ID)': 'Server/Languages/*/*.lang — localization (block names will not be shown; IDs only)',
+  'свой цвет': 'custom color',
+  'Не удалось прочитать/разобрать .blockymodel': 'Could not read or parse .blockymodel',
+  'Не удалось прочитать/декодировать текстуру': 'Could not read or decode texture',
+  'Полёт · WASD — движение · Пробел/C — вверх/вниз · Shift — ускорение · колесо — скорость (': 'Fly · WASD — move · Space/C — up/down · Shift — boost · wheel — speed (',
+  ' бл/с': ' blocks/s',
+  ') · Esc/F — выход': ') · Esc/F — exit',
+  ' · зажмите кнопку мыши, чтобы осматриваться': ' · hold the mouse button to look around',
+  'нет определения в Server/Item/Items': 'no definition in Server/Item/Items',
+  'ресурсы игры не подключены': 'game assets are not loaded',
+  'у предмета нет BlockType': 'item has no BlockType',
+  'DrawType Model без CustomModel': 'DrawType Model without CustomModel',
+  'нет Textures в определении': 'no Textures in definition',
+  'DrawType «': 'DrawType "',
+  '» не поддерживается — показана заглушка': '" is not supported — showing a placeholder',
+  'Неподдерживаемый DrawType': 'Unsupported DrawType',
+  'В Tint/TintXxx несколько цветов — используется первый': 'Multiple colors found in Tint/TintXxx; using the first',
+  'CustomModelAnimation не воспроизводится — модель в позе покоя': 'CustomModelAnimation is not played — model shown in its resting pose',
+  'Подготовка блоков: ': 'Preparing blocks: ',
+  'В префабе нет непустых блоков': 'Prefab contains no non-empty blocks',
+  'Загрузка текстур…': 'Loading textures…',
+  'У грани не задана текстура — запасная': 'No texture assigned to face — using fallback',
+  'Загрузка моделей…': 'Loading models…',
+  'CubeWithModel: модель не загружена, показан только куб': 'CubeWithModel: model failed to load; showing the cube only',
+  'не найден файл модели ': 'Model file not found: ',
+  'Для модели не задан CustomModelTexture и не найдена соседняя текстура': 'No CustomModelTexture set and no adjacent texture found for model',
+  'Режим отображения модели не поддержан (используется обычное освещение)': 'Model shading mode is not supported (using standard lighting)',
+  'в модели нет видимой геометрии: ': 'Model has no visible geometry: ',
+  'Построение сцены…': 'Building scene…',
+  'БЛОК': 'BLOCK',
+  'Снять выделение': 'Deselect',
+  'pitch/roll — предположение': 'pitch/roll are inferred',
+  'Тип:': 'Type:',
+  'нет определения': 'no definition',
+  'нет текстур': 'no textures',
+  'куб': 'cube',
+  'модель': 'model',
+  'нет данных': 'missing data',
+  'заглушка': 'placeholder',
+  'невидимый': 'invisible',
+  'Вариант ': 'Variant ',
+  'Модель:': 'Model:',
+  'текстура:': 'texture:',
+  'Тонирование:': 'Tint:',
+  'выключено': 'disabled',
+  'Выключена': 'Off',
+  'Выберите первую точку (ячейка в 2D или блок в 3D)': 'Select the first point (a 2D grid cell or a 3D block)',
+  'Выберите вторую точку': 'Select the second point',
+  'По прямой (вместе с крайними):': 'Straight-line distance (including endpoints):',
+  ' · между центрами ': ' · between centers ',
+  '· между центрами ': 'between centers ',
+  'По осям:': 'By axis:',
+  'По клеткам (путь по сторонам):': 'Grid steps (axis-aligned path):',
+  'нет данных': 'missing data',
+  'невидимый': 'invisible',
+  'прочее': 'other',
+  'блок': 'block',
+  'слой Y ': 'layer Y ',
+  'Откройте префаб': 'Open a prefab',
+  'Блоков:': 'Blocks:',
+  'Моделей:': 'Models:',
+  'Типов:': 'Types:',
+  'без определения/текстур: ': 'missing definitions/textures: ',
+  'части крупных блоков (filler, ': 'parts of large blocks (filler, ',
+  ') не считаются': ') are not counted',
+  'Показать первый такой блок': 'Show the first matching block',
+  ' шт.': ' pcs',
+  'Нет блоков': 'No blocks',
+  ' по запросу': ' matching your search',
+  'Название': 'Name',
+  'Тип': 'Type',
+  'Количество': 'Quantity',
+  'Скопировано': 'Copied',
+  'Не удалось': 'Failed',
+  'префаб не загружен': 'No prefab loaded',
+  'Подключите ресурсы игры и откройте префаб': 'Connect game assets and open a prefab',
+  'блоков': 'blocks',
+  'размер ': 'size ',
+  ' типов': ' types',
+  'формат v': 'format v',
+  'Формат .lpf (сжатый бинарный) пока не поддерживается. Откройте соответствующий .prefab.json.': 'The .lpf compressed binary format is not supported. Open the corresponding .prefab.json file.',
+  'Чтение ': 'Reading ',
+  'Ошибка: ': 'Error: ',
+  'Не удалось открыть префаб: ': 'Could not open prefab: ',
+  'Ресурсы подключены: ': 'Assets connected: ',
+  'Ресурсы не подключены': 'Assets not connected',
+  'Компонент': 'Component',
+  'Найдено': 'Found',
+  'Источник': 'Source',
+  ' файлов:': ' files:',
+  'Прочие png в Common': 'Other PNGs in Common',
+  'Биомы с TintProvider': 'Biomes with TintProvider',
+  'Строки локализации': 'Localization entries',
+  'Не найдено:': 'Missing:',
+  'Все необходимые компоненты найдены.': 'All required components were found.',
+  'Чтение источника…': 'Reading source…',
+  'Индексация (': 'Indexing (',
+  'Готово: определений ': 'Definitions loaded: ',
+  ', текстур ': ', textures found: ',
+  'биом ': 'biome ',
+  'по умолчанию': 'default',
+  'Сохранённый источник удалён (текущий остаётся подключённым до перезагрузки).': 'Saved source forgotten. The current source will remain connected until reload.',
+  'Доступ не предоставлен.': 'Access was not granted.',
+  'Найден ранее выбранный источник «': 'Previously selected source found: "',
+  '». Браузер требует подтвердить доступ.': '". The browser requires permission to access it.',
+  'Восстановить доступ к «': 'Restore access to "',
+  '»': '"'
+};
+
+const EN_TEXT_PAIRS = Object.entries(EN_TEXT).sort((a, b) => b[0].length - a[0].length);
+
+function translateUIString(value) {
+  if (UI_LANG !== 'en' || typeof value !== 'string' || !value) return value;
+  let result = value;
+  for (const [ru, en] of EN_TEXT_PAIRS) {
+    if (result.includes(ru)) result = result.split(ru).join(en);
+  }
+  return result;
+}
+
+function localizeTree(node) {
+  if (!node) return;
+  if (node.nodeType === 3) {
+    const translated = translateUIString(node.nodeValue);
+    if (translated !== node.nodeValue) node.nodeValue = translated;
+    return;
+  }
+  if (node.nodeType !== 1 && node.nodeType !== 9 && node.nodeType !== 11) return;
+  if (node.nodeType === 1) {
+    if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return;
+    for (const attr of ['title', 'placeholder', 'aria-label']) {
+      if (node.hasAttribute(attr)) {
+        const value = node.getAttribute(attr);
+        const translated = translateUIString(value);
+        if (translated !== value) node.setAttribute(attr, translated);
+      }
+    }
+  }
+  for (const child of node.childNodes) localizeTree(child);
+}
+
+if (UI_LANG === 'en') {
+  localizeTree(document.body);
+  const uiObserver = new MutationObserver(records => {
+    for (const record of records) {
+      if (record.type === 'characterData') localizeTree(record.target);
+      else if (record.type === 'attributes') localizeTree(record.target);
+      else for (const node of record.addedNodes) localizeTree(node);
+    }
+  });
+  uiObserver.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['title', 'placeholder', 'aria-label'] });
+}
+//#PURE-START
+/* ===================== Чистая логика (тестируется отдельно) ===================== */
+const KNOWN_TOP = new Set(['version','blockIdVersion','anchorX','anchorY','anchorZ','blocks','entities','fluids']);
+const KNOWN_BLOCK = new Set(['x','y','z','name','rotation','filler','support','components']);
+const KNOWN_TEX = new Set(['All','Sides','Side','UpDown','Up','Down','Top','Bottom','North','South','East','West','Weight']);
+
+function isObj(v){ return v && typeof v === 'object' && !Array.isArray(v); }
+function deepMerge(base, over){
+  if (!isObj(base) || !isObj(over)) return over === undefined ? base : over;
+  const out = Object.assign({}, base);
+  for (const k of Object.keys(over)) out[k] = isObj(base[k]) && isObj(over[k]) ? deepMerge(base[k], over[k]) : over[k];
+  return out;
+}
+function parseJSONLoose(text){
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  try { return JSON.parse(text); } catch (e) {}
+  // комментарии и висячие запятые вне строк
+  let out = '', i = 0, n = text.length, inStr = false;
+  while (i < n) {
+    const c = text[i];
+    if (inStr) { out += c; if (c === '\\') { out += text[i+1] || ''; i += 2; continue; } if (c === '"') inStr = false; i++; continue; }
+    if (c === '"') { inStr = true; out += c; i++; continue; }
+    if (c === '/' && text[i+1] === '/') { while (i < n && text[i] !== '\n') i++; continue; }
+    if (c === '/' && text[i+1] === '*') { i += 2; while (i < n && !(text[i] === '*' && text[i+1] === '/')) i++; i += 2; continue; }
+    out += c; i++;
+  }
+  out = out.replace(/,\s*([}\]])/g, '$1');
+  return JSON.parse(out);
+}
+function parseLang(text, prefix, into){
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    let l = lines[i];
+    if (!l.trim() || l.trim()[0] === '#') continue;
+    while (/\\\s*$/.test(l) && i + 1 < lines.length) l = l.replace(/\\\s*$/, '') + lines[++i].trim();
+    const eq = l.indexOf('=');
+    if (eq < 0) continue;
+    into.set(prefix + l.slice(0, eq).trim(), l.slice(eq + 1).trim());
+  }
+}
+function stripRootPath(p){
+  p = p.replace(/\\/g, '/');
+  const m = p.match(/^(?:[^/]+\/){0,4}?(?=(?:Common|Server|Cosmetics)\/)/);
+  return m ? p.slice(m[0].length) : p;
+}
+function hash3(x, y, z){
+  let h = (Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 3266489917) >>> 0;
+  h = (h ^ (h >>> 16)) >>> 0;
+  return h / 4294967296;
+}
+function pickVariant(variants, x, y, z){
+  if (variants.length <= 1) return 0;
+  const anyPos = variants.some(v => v.weight > 0);
+  const ws = variants.map(v => anyPos ? Math.max(0, v.weight) : 1);
+  const tot = ws.reduce((a, b) => a + b, 0);
+  let r = hash3(x, y, z) * tot;
+  for (let i = 0; i < ws.length; i++) { if (r < ws[i]) return i; r -= ws[i]; }
+  return variants.length - 1;
+}
+function decodeRotation(r){ r = r | 0; return { yaw: r & 3, pitch: (r >> 2) & 3, roll: (r >> 4) & 3 }; }
+
+/* ---------- тонирование ---------- */
+/** '#RRGGBB', '#RGB', '#RR GG BB', 'rgb(r,g,b)' → [r,g,b] в 0..1 или null. */
+function parseColor(v){
+  if (typeof v !== 'string') return null;
+  let s = v.trim();
+  let m = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (m) return [m[1], m[2], m[3]].map(x => Math.min(255, +x) / 255);
+  if (s[0] !== '#') return null;
+  s = s.slice(1).replace(/\s+/g, '');
+  if (/^[0-9a-f]{3}$/i.test(s)) s = s.split('').map(c => c + c).join('');
+  if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(s)) return null;
+  return [0, 2, 4].map(i => parseInt(s.slice(i, i + 2), 16) / 255);
+}
+const rgbHex = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
+function firstColor(v){
+  if (Array.isArray(v)) { for (const e of v) { const c = parseColor(e); if (c) return c; } return null; }
+  return parseColor(v);
+}
+/** Поля Tint/TintUp…/BiomeTint/BiomeTintUp… → по граням (порядок +X,−X,+Y,−Y,+Z,−Z). */
+function tintInfo(bt){
+  const names = ['East', 'West', 'Up', 'Down', 'South', 'North'];
+  const base = { rgb: firstColor(bt.Tint), biome: Number(bt.BiomeTint) > 0 ? Number(bt.BiomeTint) : 0 };
+  let multi = Array.isArray(bt.Tint) && bt.Tint.length > 1;
+  const faces = names.map(n => {
+    const arr = bt['Tint' + n];
+    if (Array.isArray(arr) && arr.length > 1) multi = true;
+    const c = firstColor(arr) || base.rgb;
+    const bv = Number(bt['BiomeTint' + n]);
+    return { rgb: c, biome: bv > 0 ? bv : base.biome };
+  });
+  return { faces, base, any: faces.some(f => f.rgb || f.biome > 0) || !!(base.rgb || base.biome), multi };
+}
+/** Цвет из TintProvider биома (Server/HytaleGenerator/Biomes). */
+function findTintColor(j){
+  const tp = j && j.TintProvider; if (!tp) return null;
+  let found = null;
+  (function walk(o){
+    if (found || o == null) return;
+    if (typeof o === 'string') { if (parseColor(o)) found = o; return; }
+    if (typeof o === 'object') for (const k in o) walk(o[k]);
+  })(tp);
+  return found ? { color: found, type: typeof tp.Type === 'string' ? tp.Type : '?' } : null;
+}
+
+/* ---------- .blockymodel ---------- */
+function normalizeModelTextures(v){
+  if (v == null) return [];
+  const out = [];
+  for (const e of (Array.isArray(v) ? v : [v])) {
+    if (typeof e === 'string') out.push({ path: e, weight: 0 });
+    else if (isObj(e)) { const p = e.Texture ?? e.All ?? e.Path ?? e.Name; if (typeof p === 'string') out.push({ path: p, weight: Number(e.Weight) || 0 }); }
+  }
+  return out;
+}
+/** Пикселей на единицу: format "prop" → 32, другой format → 64; без format — путь с папкой Blocks → 32. */
+function modelDensity(json, path){
+  const f = json && json.format;
+  if (typeof f === 'string') return f === 'prop' ? 32 : 64;
+  return /(^|\/)Blocks\//i.test(path || '') ? 32 : 64;
+}
+function m4mul(a, b){
+  const o = new Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; }
+  return o;
+}
+function m4trs(t, q, s){
+  let x = q.x, y = q.y, z = q.z, w = q.w; const n = Math.hypot(x, y, z, w) || 1; x /= n; y /= n; z /= n; w /= n;
+  const xx = x * x, yy = y * y, zz = z * z, xy = x * y, xz = x * z, yz = y * z, wx = w * x, wy = w * y, wz = w * z;
+  return [(1 - 2 * (yy + zz)) * s[0], 2 * (xy + wz) * s[0], 2 * (xz - wy) * s[0], 0,
+          2 * (xy - wz) * s[1], (1 - 2 * (xx + zz)) * s[1], 2 * (yz + wx) * s[1], 0,
+          2 * (xz + wy) * s[2], 2 * (yz - wx) * s[2], (1 - 2 * (xx + yy)) * s[2], 0,
+          t[0], t[1], t[2], 1];
+}
+function m4pt(m, p){ return [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]]; }
+function m4det3(m){ return m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]); }
+// Грани: c0..c3 — углы для (s,t) = (0,0),(1,0),(0,1),(1,1) в координатах грани (u вправо, v вниз, если смотреть снаружи).
+const FACE_DEF = {
+  front:  { c: [[-1, 1, 1], [1, 1, 1], [-1, -1, 1], [1, -1, 1]], ext: 'xy' },
+  back:   { c: [[1, 1, -1], [-1, 1, -1], [1, -1, -1], [-1, -1, -1]], ext: 'xy' },
+  right:  { c: [[1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1]], ext: 'zy' },
+  left:   { c: [[-1, 1, -1], [-1, 1, 1], [-1, -1, -1], [-1, -1, 1]], ext: 'zy' },
+  top:    { c: [[-1, 1, -1], [1, 1, -1], [-1, 1, 1], [1, 1, 1]], ext: 'xz' },
+  bottom: { c: [[-1, -1, 1], [1, -1, 1], [-1, -1, -1], [1, -1, -1]], ext: 'xz' },
+};
+const NORMAL_FACE = { '+Z': 'front', '-Z': 'back', '+X': 'right', '-X': 'left', '+Y': 'top', '-Y': 'bottom' };
+/** UV углов грани в пикселях текстуры (алгоритм из описания формата: mirror → шаг со знаком, angle → повороты (u,v)→(−v,u), затем offset). */
+function faceUVs(w, h, lay){
+  const mx = lay.mirror && lay.mirror.x, my = lay.mirror && lay.mirror.y;
+  const du = w * (mx ? -1 : 1), dv = h * (my ? -1 : 1);
+  const turns = ((((Number(lay.angle) || 0) % 360) + 360) % 360) / 90 | 0;
+  const off = lay.offset || {};
+  return [[0, 0], [1, 0], [0, 1], [1, 1]].map(([s, t]) => {
+    let u = s * du, v = t * dv;
+    for (let i = 0; i < turns; i++) { const nu = -v; v = u; u = nu; }
+    return [u + (off.x || 0), v + (off.y || 0)];
+  });
+}
+/** Запекает модель в статическую геометрию (поза покоя). Координаты в блоках; начало модели — низ-центр ячейки. */
+function bakeBlockyModel(json, density, texW, texH){
+  const pos = [], nrm = [], uv = [], idx = [];
+  const notes = new Set();
+  let doubleSided = false;
+  const ID = { x: 0, y: 0, z: 0, w: 1 }, I4 = m4trs([0, 0, 0], ID, [1, 1, 1]);
+  const inv = 1 / density;
+  function emit(shape, W){
+    const off = shape.offset || {}, st = shape.stretch || {};
+    const M = m4mul(W, m4trs([off.x || 0, off.y || 0, off.z || 0], ID, [st.x === undefined ? 1 : st.x, st.y === undefined ? 1 : st.y, st.z === undefined ? 1 : st.z]));
+    const flip = m4det3(M) < 0;
+    const set = shape.settings || {}, sz = set.size || {};
+    let sx = sz.x || 0, sy = sz.y || 0, szz = sz.z || 0, only = null;
+    const lay = shape.textureLayout || {};
+    if (shape.type === 'quad') {
+      const nm = NORMAL_FACE[String(set.normal || '+Z').toUpperCase()] || 'front';
+      only = nm;
+      if (nm === 'front' || nm === 'back') szz = 0; else if (nm === 'left' || nm === 'right') { szz = sx; sx = 0; } else { szz = sy; sy = 0; }
+    }
+    if (shape.shadingMode && shape.shadingMode !== 'standard') notes.add('shadingMode:' + shape.shadingMode);
+    if (shape.doubleSided) doubleSided = true;
+    const hx = sx / 2, hy = sy / 2, hz = szz / 2;
+    for (const fname of Object.keys(FACE_DEF)) {
+      if (only && fname !== only) continue;
+      const L = only ? (lay.front || lay[fname]) : lay[fname];
+      if (!L) continue;
+      const fd = FACE_DEF[fname];
+      const w = fd.ext === 'xy' ? sx : fd.ext === 'zy' ? szz : sx;
+      const h = fd.ext === 'xz' ? szz : sy;
+      const uvs = faceUVs(w, h, L);
+      const P = fd.c.map(c => m4pt(M, [c[0] * hx, c[1] * hy, c[2] * hz]).map(v => v * inv));
+      const base = pos.length / 3;
+      for (let i = 0; i < 4; i++) { pos.push(P[i][0], P[i][1], P[i][2]); uv.push(uvs[i][0] / texW, 1 - uvs[i][1] / texH); }
+      const e1 = [P[1][0] - P[0][0], P[1][1] - P[0][1], P[1][2] - P[0][2]], e2 = [P[2][0] - P[0][0], P[2][1] - P[0][1], P[2][2] - P[0][2]];
+      let n = flip ? [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]
+                   : [e2[1] * e1[2] - e2[2] * e1[1], e2[2] * e1[0] - e2[0] * e1[2], e2[0] * e1[1] - e2[1] * e1[0]];
+      const nl = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / nl, n[1] / nl, n[2] / nl];
+      for (let i = 0; i < 4; i++) nrm.push(n[0], n[1], n[2]);
+      if (flip) idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+      else idx.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
+    }
+  }
+  function walk(nodes, PW, poff){
+    for (const n of nodes || []) {
+      if (!isObj(n)) continue;
+      const p = n.position || {}, o = n.orientation;
+      const q = o ? { x: o.x || 0, y: o.y || 0, z: o.z || 0, w: o.w === undefined ? 1 : o.w } : ID;
+      const W = m4mul(PW, m4trs([(p.x || 0) + poff[0], (p.y || 0) + poff[1], (p.z || 0) + poff[2]], q, [1, 1, 1]));
+      const sh = n.shape;
+      let so = [0, 0, 0];
+      if (isObj(sh)) {
+        const so0 = sh.offset || {}; so = [so0.x || 0, so0.y || 0, so0.z || 0];
+        if (sh.visible !== false && (sh.type === 'box' || sh.type === 'quad')) emit(sh, W);
+      }
+      walk(n.children, W, so);
+    }
+  }
+  walk(json.nodes, I4, [0, 0, 0]);
+  return { pos, nrm, uv, idx, doubleSided, notes: [...notes], faces: idx.length / 6 };
+}
+
+
+/** Разбор префаба. Возвращает {prefab, warnings:[{code,msg,ex}]}. */
+function parsePrefab(json){
+  const W = [];
+  const w = (code, msg, ex) => W.push({ code, msg, ex });
+  if (!isObj(json)) throw new Error('Корень файла — не JSON-объект');
+  if (!Array.isArray(json.blocks)) throw new Error('В префабе нет массива "blocks"');
+  for (const k of Object.keys(json)) if (!KNOWN_TOP.has(k)) w('p-top', 'Неизвестное поле верхнего уровня (не обработано)', k);
+  if (json.version !== 8) w('p-ver', 'Версия формата отличается от 8, с которой проверялся просмотрщик', String(json.version));
+  const num = v => (typeof v === 'number' && isFinite(v)) ? v : 0;
+  const prefab = {
+    version: json.version, blockIdVersion: json.blockIdVersion,
+    anchor: [num(json.anchorX), num(json.anchorY), num(json.anchorZ)],
+    blocks: [], entities: Array.isArray(json.entities) ? json.entities.length : 0,
+    fluids: Array.isArray(json.fluids) ? json.fluids.length : 0,
+  };
+  if (prefab.entities) w('p-ent', 'Сущности (entities) в этой версии не отображаются', prefab.entities + ' шт.');
+  if (prefab.fluids) w('p-fl', 'Жидкости (fluids) в этой версии не отображаются', prefab.fluids + ' шт.');
+  let bad = 0, nonInt = 0;
+  const unk = new Map();
+  for (const b of json.blocks) {
+    if (!isObj(b) || typeof b.name !== 'string' || !Number.isFinite(b.x) || !Number.isFinite(b.y) || !Number.isFinite(b.z)) { bad++; continue; }
+    if (!Number.isInteger(b.x) || !Number.isInteger(b.y) || !Number.isInteger(b.z)) nonInt++;
+    for (const k in b) if (!KNOWN_BLOCK.has(k)) unk.set(k, (unk.get(k) || 0) + 1);
+    prefab.blocks.push(b);
+  }
+  if (bad) w('p-bad', 'Записи блоков без корректных x/y/z/name пропущены', bad + ' шт.');
+  if (nonInt) w('p-nonint', 'Нецелые координаты блоков (ячейка берётся как floor)', nonInt + ' шт.');
+  for (const [k, c] of unk) w('p-bk', 'Неизвестное поле в записи блока (не обработано)', k + ' ×' + c);
+  return { prefab, warnings: W };
+}
+
+/** Разрешение определений блоков. items/blockTypes: Map<id, rawJSON>. */
+function createResolver(items, blockTypes, warn){
+  const itemCache = new Map(), btCache = new Map(), blockCache = new Map();
+  function chain(map, cache, id, kind, seen){
+    if (cache.has(id)) return cache.get(id);
+    const raw = map.get(id);
+    if (!raw) return null;
+    if (seen.has(id)) { warn('cycle', 'Циклическая ссылка Parent (' + kind + ')', id); return null; }
+    seen.add(id);
+    let out = raw;
+    if (raw.Parent != null) {
+      const p = chain(map, cache, String(raw.Parent), kind, seen);
+      if (p) out = deepMerge(p, raw);
+      else warn('noparent', 'Parent не найден (' + kind + ')', id + ' → ' + raw.Parent);
+    }
+    seen.delete(id);
+    cache.set(id, out);
+    return out;
+  }
+  const DRAW_CUBE = new Set(['Cube', 'CubeWithModel']);
+  function faceSet(e){
+    const all = e.All, sides = e.Sides ?? e.Side, ud = e.UpDown;
+    const up = e.Up ?? e.Top ?? ud ?? all, down = e.Down ?? e.Bottom ?? ud ?? all;
+    const n = e.North ?? sides ?? all, s = e.South ?? sides ?? all, ea = e.East ?? sides ?? all, we = e.West ?? sides ?? all;
+    // порядок граней BoxGeometry: +X, -X, +Y, -Y, +Z, -Z
+    return [ea, we, up, down, s, n].map(v => (typeof v === 'string' && v) ? v : null);
+  }
+  function resolveBlock(name){
+    if (blockCache.has(name)) return blockCache.get(name);
+    let id = name, state = null;
+    if (id[0] === '*') {
+      id = id.slice(1);
+      const k = id.indexOf('_State_Definitions_');
+      if (k >= 0) { state = id.slice(k + 19); id = id.slice(0, k); }
+    }
+    const R = { name, id, status: 'ok', drawType: 'Cube', variants: [], customModel: null, itemPath: null, state };
+    const item = chain(items, itemCache, id, 'item', new Set());
+    if (!item) { R.status = 'unknown'; blockCache.set(name, R); return R; }
+    let bt = item.BlockType;
+    if (!isObj(bt)) { R.status = 'noblocktype'; blockCache.set(name, R); return R; }
+    if (bt.Parent != null) {
+      const p = chain(blockTypes, btCache, String(bt.Parent), 'blocktype', new Set());
+      if (p) bt = deepMerge(p, bt); else warn('noparent', 'Parent не найден (blocktype)', id + ' → ' + bt.Parent);
+    }
+    if (state) {
+      const def = bt.State && bt.State.Definitions && bt.State.Definitions[state];
+      if (isObj(def)) bt = deepMerge(bt, def); else warn('nostate', 'Состояние блока не найдено в определении', name);
+    }
+    R.bt = bt;
+    R.drawType = typeof bt.DrawType === 'string' ? bt.DrawType : 'Cube';
+    R.customModel = typeof bt.CustomModel === 'string' ? bt.CustomModel : null;
+    R.modelTextures = normalizeModelTextures(bt.CustomModelTexture);
+    R.modelAnim = bt.CustomModelAnimation || null;
+    R.tint = tintInfo(bt);
+    let tx = bt.Textures;
+    if (isObj(tx)) tx = [tx];
+    if (Array.isArray(tx)) {
+      for (const e of tx) {
+        if (!isObj(e)) continue;
+        for (const k of Object.keys(e)) if (!KNOWN_TEX.has(k)) warn('texkey', 'Неизвестное поле в Textures (не обработано)', k);
+        R.variants.push({ weight: Number(e.Weight) || 0, faces: faceSet(e) });
+      }
+    }
+    if (DRAW_CUBE.has(R.drawType) && !R.variants.length) R.status = 'notex';
+    blockCache.set(name, R);
+    return R;
+  }
+  return { resolveBlock };
+}
+//#PURE-END
+
+/* ===================== Приложение ===================== */
+(() => {
+if (typeof THREE === 'undefined' || typeof zip === 'undefined') {
+  document.body.insertAdjacentHTML('afterbegin', '<div style="background:#5a1d18;color:#fff;padding:8px 12px">Не загрузились библиотеки Three.js / zip.js с CDN (jsdelivr). Нужен доступ в интернет только для загрузки самих библиотек; игровые данные никуда не отправляются.</div>');
+  return;
+}
+const $ = s => document.querySelector(s);
+const esc =s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+/* ---------- предупреждения ---------- */
+const rWarn = new Map(), pWarn = new Map();
+function addWarn(map, code, msg, ex){
+  let w = map.get(code);
+  if (!w) { w = { msg, count: 0, ex: [] }; map.set(code, w); }
+  w.count++;
+  if (ex !== undefined && w.ex.length < 8 && !w.ex.includes(ex)) w.ex.push(ex);
+}
+const warnR = (c, m, e) => addWarn(rWarn, c, m, e);
+const warnP = (c, m, e) => addWarn(pWarn, c, m, e);
+function updWarnBadge(){ $('#warnN').textContent = rWarn.size + pWarn.size; }
+function renderWarnings(){
+  const parts = [];
+  const sect = (title, map) => {
+    if (!map.size) return;
+    parts.push('<h4 style="margin:12px 0 4px">' + title + '</h4><table><tr><th>Сообщение</th><th>Кол-во</th><th>Примеры</th></tr>' +
+      [...map.values()].map(w => '<tr><td>' + esc(w.msg) + '</td><td>' + w.count + '</td><td><code>' + w.ex.map(esc).join('<br>') + '</code></td></tr>').join('') + '</table>');
+  };
+  sect('Префаб и блоки', pWarn);
+  sect('Ресурсы', rWarn);
+  if (state.unresolved.size) {
+    const rows = [...state.unresolved.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 300);
+    parts.push('<h4 style="margin:12px 0 4px">Блоки без определения или текстур (' + state.unresolved.size + ')</h4><table><tr><th>ID блока</th><th>Причина</th><th>Ячеек</th></tr>' +
+      rows.map(([n, u]) => '<tr><td><code>' + esc(n) + '</code></td><td>' + esc(u.reason) + '</td><td>' + u.count + '</td></tr>').join('') + '</table>');
+  }
+  if (state.missingTex.size) {
+    parts.push('<h4 style="margin:12px 0 4px">Не найдены файлы текстур (' + state.missingTex.size + ')</h4><table>' +
+      [...state.missingTex].slice(0, 200).map(t => '<tr><td><code>' + esc(t) + '</code></td></tr>').join('') + '</table>');
+  }
+  $('#warnBody').innerHTML = parts.join('') || '<span class="dim">Предупреждений нет.</span>';
+}
+
+/* ---------- состояние ---------- */
+const state = {
+  src: null, res: null, resolver: null,
+  prefab: null, fileName: '',
+  unresolved: new Map(), missingTex: new Set(),
+  mode: 'all', layer: 0, minY: 0, maxY: 0,
+  sel: -1, ruler: { on: false, a: null, b: null },
+  built: null,   // результат buildScene
+};
+
+/* ===================== Источники ресурсов ===================== */
+function zipSource(file){
+  return (async () => {
+    zip.configure({ useWebWorkers: false });
+    const rd = new zip.ZipReader(new zip.BlobReader(file));
+    const entries = await rd.getEntries();
+    const map = new Map();
+    for (const e of entries) {
+      if (e.directory) continue;
+      map.set(stripRootPath(e.filename), {
+        text: () => e.getData(new zip.TextWriter()),
+        blob: () => e.getData(new zip.BlobWriter()),
+      });
+    }
+    return { kind: 'zip', label: file.name, map };
+  })();
+}
+function fileListSource(files){
+  const map = new Map();
+  for (const f of files) {
+    const p = stripRootPath(f.webkitRelativePath || f.name);
+    map.set(p, { text: () => f.text(), blob: async () => f });
+  }
+  const first = files[0] && files[0].webkitRelativePath ? files[0].webkitRelativePath.split('/')[0] : 'папка';
+  return { kind: 'dir', label: first, map };
+}
+async function handleSource(dh, onProg){
+  const map = new Map();
+  const SKIP = new Set(['Sounds', 'Music', 'Audio']);
+  let n = 0;
+  async function walk(h, path){
+    for await (const [name, ch] of h.entries()) {
+      if (ch.kind === 'directory') {
+        if (path === 'Common' && SKIP.has(name)) continue;
+        await walk(ch, path ? path + '/' + name : name);
+      } else {
+        const p = path ? path + '/' + name : name;
+        map.set(p, { text: async () => (await ch.getFile()).text(), blob: () => ch.getFile() });
+        if (++n % 500 === 0) { onProg && onProg(0, 'Просмотр папки: ' + n + ' файлов'); await tick(); }
+      }
+    }
+  }
+  await walk(dh, '');
+  // если выбрана родительская папка — убрать лишний корень
+  const m2 = new Map();
+  for (const [p, v] of map) m2.set(stripRootPath(p), v);
+  return { kind: 'dir', label: dh.name, map: m2 };
+}
+
+/* ---------- индексация ---------- */
+async function indexSource(src, prog){
+  const res = {
+    src, lower: new Map(), items: new Map(), blockTypes: new Map(), lang: new Map(), langCode: null,
+    itemPath: new Map(), stats: {}, missing: [],
+  };
+  for (const p of src.map.keys()) res.lower.set(p.toLowerCase(), p);
+  const itemFiles = [], btFiles = [], langFiles = new Map(), biomeFiles = [];
+  let nTexBT = 0, nTexBlk = 0, nTexOther = 0, nModels = 0;
+  for (const p of src.map.keys()) {
+    const lp = p.toLowerCase();
+    if (lp.endsWith('.json')) {
+      if (lp.startsWith('server/item/items/')) itemFiles.push(p);
+      else if (lp.startsWith('server/item/block/')) btFiles.push(p);
+      else if (lp.startsWith('server/hytalegenerator/biomes/')) biomeFiles.push(p);
+    } else if (lp.endsWith('.lang')) {
+      const m = p.match(/^Server\/Languages\/([^/]+)\/(.+)\.lang$/i);
+      if (m) { (langFiles.get(m[1]) || langFiles.set(m[1], []).get(m[1])).push({ p, rel: m[2] }); }
+    } else if (lp.endsWith('.png')) {
+      if (lp.startsWith('common/blocktextures/')) nTexBT++;
+      else if (lp.startsWith('common/blocks/')) nTexBlk++;
+      else if (lp.startsWith('common/')) nTexOther++;
+    } else if (lp.endsWith('.blockymodel') && lp.startsWith('common/')) nModels++;
+  }
+  const total = itemFiles.length + btFiles.length;
+  let done = 0;
+  async function loadDefs(list, map, label){
+    let bad = 0;
+    for (let i = 0; i < list.length; i += 32) {
+      const batch = list.slice(i, i + 32);
+      await Promise.all(batch.map(async p => {
+        try {
+          const j = parseJSONLoose(await src.map.get(p).text());
+          if (!isObj(j)) return;
+          const id = p.split('/').pop().replace(/\.json$/i, '');
+          map.set(id, j);
+          if (label === 'item') res.itemPath.set(id, p);
+          if (typeof j.Id === 'string' && j.Id !== id && !map.has(j.Id)) { map.set(j.Id, j); if (label === 'item') res.itemPath.set(j.Id, p); }
+        } catch (e) { bad++; }
+      }));
+      done += batch.length;
+      prog(total ? done / total : 1, 'Определения: ' + done + ' / ' + total);
+      await tick();
+    }
+    if (bad) warnR('badjson', 'Не удалось разобрать JSON-определения', bad + ' файлов (' + label + ')');
+  }
+  await loadDefs(itemFiles, res.items, 'item');
+  await loadDefs(btFiles, res.blockTypes, 'blocktype');
+  // цвета биомов (TintProvider)
+  res.biomes = [];
+  for (let i = 0; i < biomeFiles.length; i += 32) {
+    await Promise.all(biomeFiles.slice(i, i + 32).map(async p => {
+      try {
+        const j = parseJSONLoose(await src.map.get(p).text());
+        const t = findTintColor(j);
+        if (t) res.biomes.push({ name: p.split('/').pop().replace(/\.json$/i, ''), color: t.color, type: t.type });
+      } catch (e) {}
+    }));
+    await tick();
+  }
+  res.biomes.sort((a, b) => a.name.localeCompare(b.name));
+
+  // локализация
+  const codes = [...langFiles.keys()];
+  const preferredLang = UI_LANG === 'ru' ? 'ru-ru' : 'en-us';
+  res.langCode = codes.find(c => c.toLowerCase() === preferredLang) || codes.find(c => c.toLowerCase() === 'en-us') || codes[0] || null;
+  if (res.langCode) {
+    for (const { p, rel } of langFiles.get(res.langCode)) {
+      try {
+        const parts = rel.split('/'); const file = parts.pop();
+        // items.lang → "items.", server/items.lang → "server.items."
+        const prefix = parts.concat([file]).join('.') + '.';
+        parseLang(await src.map.get(p).text(), prefix, res.lang);
+      } catch (e) {}
+    }
+  }
+  res.stats = { biomes: res.biomes.length, items: res.items.size, blockTypes: res.blockTypes.size, texBT: nTexBT, texBlk: nTexBlk, texOther: nTexOther, lang: res.lang.size, models: nModels, files: src.map.size };
+  if (!res.items.size) res.missing.push('Server/Item/Items/*.json — определения предметов/блоков (без них ID блоков не сопоставить с текстурами)');
+  if (!res.blockTypes.size) res.missing.push('Server/Item/Block/*.json — определения типов блоков (возможно, не требуются, если Parent на них не ссылаются)');
+  if (!nTexBT && !nTexBlk) res.missing.push('Common/BlockTextures/ и Common/Blocks/ — текстуры блоков');
+  else if (!nTexBT) res.missing.push('Common/BlockTextures/ — каталог текстур блоков не найден');
+  if (!nModels) res.missing.push('Common/**/*.blockymodel — модели (в этой версии не отображаются, но для будущей поддержки нужны)');
+  if (!res.biomes.length) res.missing.push('Server/HytaleGenerator/Biomes/*.json — цвета биомов (тонирование возможно с цветом, выбранным вручную)');
+  if (!res.lang.size) res.missing.push('Server/Languages/*/*.lang — локализация (названия блоков не будут показаны, только ID)');
+  return res;
+}
+
+/* ---------- текстуры ---------- */
+const texCache = new Map();   // path → Promise<{canvas, tex, alpha}|null>
+let fallback = null;
+function getFallback(){
+  if (fallback) return fallback;
+  const c = document.createElement('canvas'); c.width = c.height = 16;
+  const g = c.getContext('2d');
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = (x + y) & 1 ? '#ff00ff' : '#150015'; g.fillRect(x * 2, y * 2, 2, 2); }
+  const tex = mkTex(c);
+  fallback = { canvas: c, tex, alpha: false };
+  return fallback;
+}
+function mkTex(canvas){
+  const t = new THREE.CanvasTexture(canvas);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+/* ---------- тонирование ---------- */
+const tintState = { enabled: true, color: [0.298, 0.686, 0.314], label: 'свой цвет' };   // по умолчанию #4CAF50 — пример цвета Forest из документации
+let tintVer = 0;
+const tintTexCache = new Map();
+function effRGB(f){
+  if (!f) return null;
+  let c = f.rgb ? f.rgb.slice() : null;
+  if (tintState.enabled && f.biome > 0) c = c ? c.map((v, i) => v * tintState.color[i]) : tintState.color.slice();
+  return c;
+}
+/** Текстура, умноженная на цвет (в sRGB-пространстве, как делает обычный шейдер тонирования). */
+function tintedEntry(entry, c, path){
+  if (!entry || !c || c.every(v => v > 0.995)) return entry;
+  const key = path + '|' + rgbHex(c);
+  let e = tintTexCache.get(key); if (e) return e;
+  const cv = document.createElement('canvas'); cv.width = entry.canvas.width; cv.height = entry.canvas.height;
+  const g = cv.getContext('2d');
+  g.drawImage(entry.canvas, 0, 0);
+  g.globalCompositeOperation = 'multiply'; g.fillStyle = rgbHex(c); g.fillRect(0, 0, cv.width, cv.height);
+  g.globalCompositeOperation = 'destination-in'; g.drawImage(entry.canvas, 0, 0);
+  e = { canvas: cv, tex: mkTex(cv), alpha: entry.alpha };
+  tintTexCache.set(key, e); return e;
+}
+function applyTints(){
+  tintVer++;
+  const old = [...tintTexCache.values()]; tintTexCache.clear();
+  for (const m of matCache.values()) { const sr = m.userData.src; if (sr) m.map = tintedEntry(sr.entry, effRGB(sr.f), sr.path).tex; }
+  for (const o of old) o.tex.dispose();
+  requestBom();
+  const B = state.built;
+  if (B) for (const g of B.groups) if (g.kind === 'model' && g.baked) g.icon = modelIcon(g, getFallback());
+  requestRender(); requestDraw2D();
+}
+function findResourcePath(p, ext){
+  const res = state.res; if (!res || !p) return null;
+  const q = String(p).replace(/\\/g, '/').replace(/^\/+/, '');
+  const withExt = q.toLowerCase().endsWith(ext) ? q : q + ext;
+  for (const base of ['Common/', 'Common/BlockTextures/', 'Common/Blocks/', 'Common/Resources/', 'Common/Items/', 'Common/NPC/', 'Common/VFX/', '']) {
+    const r = res.lower.get((base + withExt).toLowerCase()); if (r) return r;
+  }
+  return null;
+}
+const findTexturePath = p => findResourcePath(p, '.png');
+const modelCache = new Map();   // path → Promise<{json, real}|null>
+function loadModel(path){
+  if (modelCache.has(path)) return modelCache.get(path);
+  const pr = (async () => {
+    const real = findResourcePath(path, '.blockymodel');
+    if (!real) return null;
+    try { return { json: parseJSONLoose(await state.res.src.map.get(real).text()), real }; }
+    catch (e) { warnP('modelread', 'Не удалось прочитать/разобрать .blockymodel', real); return null; }
+  })();
+  modelCache.set(path, pr); return pr;
+}
+/** Текстура модели: CustomModelTexture, иначе соседний файл рядом с моделью. */
+function siblingTextures(real){
+  const base = real.replace(/\.blockymodel$/i, '');
+  return [base + '_Texture.png', base + '.png', base.replace(/[^/]+$/, '') + 'Texture.png'];
+}
+function loadTexture(path){
+  if (texCache.has(path)) return texCache.get(path);
+  const pr = (async () => {
+    const real = findTexturePath(path);
+    if (!real) { state.missingTex.add(path); return null; }
+    try {
+      const blob = await state.res.src.map.get(real).blob();
+      const bmp = await createImageBitmap(blob);
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      const g = c.getContext('2d'); g.drawImage(bmp, 0, 0);
+      let alpha = false;
+      try { const d = g.getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] < 250) { alpha = true; break; } } catch (e) {}
+      return { canvas: c, tex: mkTex(c), alpha };
+    } catch (e) { warnR('texread', 'Не удалось прочитать/декодировать текстуру', real); return null; }
+  })();
+  texCache.set(path, pr);
+  return pr;
+}
+
+/* ===================== 3D ===================== */
+const cv3 = $('#cv3d'), pane3 = $('#pane3d');
+const renderer = new THREE.WebGLRenderer({ canvas: cv3, antialias: true });
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.setClearColor(0x1c1e25);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 5000);
+camera.position.set(12, 10, 14);
+const controls = new THREE.OrbitControls(camera, cv3);
+controls.enableDamping = false;
+controls.addEventListener('change', requestRender);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;       // тени пересчитываются только при изменении сцены
+let shadowDirty = true;
+function requestShadow(){ shadowDirty = true; requestRender(); }
+
+/* ---------- освещение ----------
+   «Объёмное»: небо/земля (hemisphere) + солнце с мягкими тенями + затенение от нависающих блоков (AO по соседям).
+   «Плоское»: равномерный свет — как раньше. */
+const ambient = new THREE.AmbientLight(0xffffff, 0.78); scene.add(ambient);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8478, 0); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff3e0, 0.55); sun.position.set(-1, 2.2, 1.4); scene.add(sun); scene.add(sun.target);
+const SUN_DIR = new THREE.Vector3(-0.55, 1, 0.4).normalize();
+const aoU = { value: 1 };
+const light = { lit: true };
+try { if (localStorage.getItem('pv.light') === 'flat') light.lit = false; } catch (e) {}
+function updateLighting(){
+  const lit = light.lit;
+  ambient.intensity = lit ? 0 : 0.78; hemi.intensity = lit ? 0.62 : 0;
+  sun.intensity = lit ? 0.5 : 0.55; sun.color.set(lit ? 0xfff3e0 : 0xffffff);
+  sun.castShadow = lit; aoU.value = lit ? 1 : 0;
+  const b = state.built && state.built.bounds;
+  if (lit && b) {
+    const c = new THREE.Vector3((b.minX + b.maxX + 1) / 2, (b.minY + b.maxY + 1) / 2, (b.minZ + b.maxZ + 1) / 2);
+    const r = Math.hypot(b.maxX - b.minX + 1, b.maxY - b.minY + 1, b.maxZ - b.minZ + 1) / 2 + 2;
+    sun.position.copy(c).addScaledVector(SUN_DIR, r * 2.2); sun.target.position.copy(c);
+    const sc = sun.shadow.camera; sc.left = -r; sc.right = r; sc.top = r; sc.bottom = -r; sc.near = 0.5; sc.far = r * 5; sc.updateProjectionMatrix();
+    const size = r > 48 ? 4096 : 2048;
+    if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+    sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+  } else if (!lit) { sun.position.set(-1, 2.2, 1.4); sun.target.position.set(0, 0, 0); }
+  sun.target.updateMatrixWorld();
+  const bt = $('#btnLight'); if (bt) bt.classList.toggle('on', lit);
+  requestShadow();
+}
+
+/* Появление/исчезновение слоёв: у каждого слоя свой «прогресс» (0…1), который идёт по времени к цели
+   (с небольшой задержкой-волной от выбранного слоя). Из прогресса считается масштаб с «импактом»:
+   при появлении блок вырастает с перелётом и мультяшно пружинит, при исчезновении сначала слегка
+   разбухает, а затем схлопывается. Масштаб лежит в DataTexture (по пикселю на слой), шейдер применяет его к блоку. */
+const visU = { value: null }, minYU = { value: 0 }, cntU = { value: 1 };
+const vis = { pos: new Float32Array(1), tgt: new Float32Array(1), up: new Uint8Array(1), wait: new Float32Array(1), data: new Uint8Array(1), tex: null, minY: 0, cnt: 1, active: false };
+const BACK_C1 = 2.2, BACK_C3 = BACK_C1 + 1, SCALE_MAX = 1.5, T_IN = 0.36, T_OUT = 0.28;
+const easeOutBack = x => 1 + BACK_C3 * Math.pow(x - 1, 3) + BACK_C1 * Math.pow(x - 1, 2);
+const easeInBack = x => BACK_C3 * x * x * x - BACK_C1 * x * x;
+function layerScale(pos, up){
+  if (pos <= 0) return 0; if (pos >= 1) return 1;
+  return up ? easeOutBack(pos) : 1 - easeInBack(1 - pos);
+}
+function writeVis(i){ vis.data[i] = Math.max(0, Math.min(255, Math.round(layerScale(vis.pos[i], vis.up[i]) / SCALE_MAX * 255))); }
+function initVis(minY, maxY){
+  vis.minY = minY; vis.cnt = Math.max(1, maxY - minY + 1);
+  vis.pos = new Float32Array(vis.cnt).fill(1); vis.tgt = new Float32Array(vis.cnt).fill(1); vis.up = new Uint8Array(vis.cnt).fill(1);
+  vis.wait = new Float32Array(vis.cnt); vis.data = new Uint8Array(vis.cnt);
+  for (let i = 0; i < vis.cnt; i++) writeVis(i);
+  if (vis.tex) vis.tex.dispose();
+  const t = new THREE.DataTexture(vis.data, vis.cnt, 1, THREE.RedFormat, THREE.UnsignedByteType);
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.unpackAlignment = 1; t.generateMipmaps = false; t.needsUpdate = true;
+  vis.tex = t; visU.value = t; minYU.value = minY; cntU.value = vis.cnt;
+  setVisTargets(true);
+}
+function setVisTargets(snap){
+  for (let i = 0; i < vis.cnt; i++) {
+    const y = vis.minY + i;
+    const t = state.mode === 'all' ? 1 : state.mode === 'only' ? (y === state.layer ? 1 : 0) : (y <= state.layer ? 1 : 0);
+    if (snap) { vis.tgt[i] = vis.pos[i] = t; vis.up[i] = 1; vis.wait[i] = 0; writeVis(i); }
+    else if (t !== vis.tgt[i]) { vis.tgt[i] = t; vis.up[i] = t > vis.pos[i] ? 1 : 0; vis.wait[i] = Math.min(0.16, Math.abs(y - state.layer) * 0.014); }
+  }
+  if (vis.tex) { vis.active = true; if (snap) vis.tex.needsUpdate = true; }
+  requestShadow();
+}
+function stepVis(dt){
+  if (!vis.active) return;
+  let moving = false;
+  for (let i = 0; i < vis.cnt; i++) {
+    const t = vis.tgt[i];
+    if (vis.pos[i] === t) continue;
+    moving = true;
+    if (vis.wait[i] > 0) { vis.wait[i] -= dt; continue; }
+    vis.pos[i] = t > vis.pos[i] ? Math.min(t, vis.pos[i] + dt / T_IN) : Math.max(t, vis.pos[i] - dt / T_OUT);
+    writeVis(i);
+  }
+  vis.tex.needsUpdate = true; vis.active = moving; shadowDirty = true;
+}
+visU.value = (() => { const t = new THREE.DataTexture(new Uint8Array([170]), 1, 1, THREE.RedFormat, THREE.UnsignedByteType); t.unpackAlignment = 1; t.needsUpdate = true; return t; })();
+// GLSL: масштаб слоя (из текстуры) → пружинящая деформация (при перелёте — вытягивается по высоте и сужается, при росте высота опережает ширину)
+const GLSL_SCALE = `
+ float vv = texture2D(uVis, vec2((aY - uMinY + 0.5) / uCnt, 0.5)).r * 1.5;
+ float kk = vv - 1.0;
+ vec3 sc = kk > 0.0 ? vec3(vv - kk * 0.7, vv + kk * 1.2, vv - kk * 0.7) : vec3(pow(vv, 1.18), pow(vv, 0.78), pow(vv, 1.18));
+ transformed *= sc;`;
+function patchDepth(m){
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uVis = visU; sh.uniforms.uMinY = minYU; sh.uniforms.uCnt = cntU;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aY;\nuniform sampler2D uVis;\nuniform float uMinY;\nuniform float uCnt;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>' + GLSL_SCALE)
+      .replace('#include <project_vertex>', '#include <project_vertex>\n if (vv < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 0.0);');
+  };
+  m.customProgramCacheKey = () => 'layerclipdepth2';
+  return m;
+}
+const depthMats = new Map();
+function getDepthMat(entry){
+  const k = entry && entry.alpha ? entry.tex.uuid : 'plain';
+  let m = depthMats.get(k); if (m) return m;
+  m = patchDepth(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: k === 'plain' ? null : entry.tex, alphaTest: k === 'plain' ? 0 : 0.5 }));
+  depthMats.set(k, m); return m;
+}
+function patchMat(m){
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uVis = visU; sh.uniforms.uMinY = minYU; sh.uniforms.uCnt = cntU; sh.uniforms.uAO = aoU;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aY;\nattribute float aAO;\nuniform sampler2D uVis;\nuniform float uMinY;\nuniform float uCnt;\nuniform float uAO;\nvarying float vAO;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>' + GLSL_SCALE + '\n vAO = mix(1.0, aAO, uAO);')
+      .replace('#include <project_vertex>', '#include <project_vertex>\n if (vv < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 0.0);');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vAO;')
+      .replace('#include <tonemapping_fragment>', 'gl_FragColor.rgb *= vAO;\n#include <tonemapping_fragment>');
+  };
+  m.customProgramCacheKey = () => 'layerclip2';
+  return m;
+}
+
+let dirty = true;
+function requestRender(){ dirty = true; }
+
+/* ---------- полёт от первого лица ---------- */
+const fly = { on: false, locked: false, hadLock: false, dragging: false, yaw: 0, pitch: 0, tyaw: 0, tpitch: 0, vel: new THREE.Vector3(), keys: new Set(), speed: 0, userSpeed: false };
+const FLYKEYS = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r', Space: 'u', KeyC: 'd' };
+const _f = new THREE.Vector3(), _r = new THREE.Vector3(), _d = new THREE.Vector3();
+function updateFly(dt){
+  const kl = 1 - Math.exp(-dt * 16);                       // сглаживание поворота
+  fly.yaw += (fly.tyaw - fly.yaw) * kl; fly.pitch += (fly.tpitch - fly.pitch) * kl;
+  camera.rotation.set(fly.pitch, fly.yaw, 0, 'YXZ');
+  _f.set(0, 0, -1).applyEuler(camera.rotation);
+  _r.set(Math.cos(fly.yaw), 0, -Math.sin(fly.yaw));
+  const k = fly.keys; _d.set(0, 0, 0);
+  if (k.has('f')) _d.add(_f); if (k.has('b')) _d.sub(_f);
+  if (k.has('r')) _d.add(_r); if (k.has('l')) _d.sub(_r);
+  if (k.has('u')) _d.y += 1; if (k.has('d')) _d.y -= 1;
+  if (_d.lengthSq() > 1) _d.normalize();
+  _d.multiplyScalar(fly.speed * (k.has('boost') ? 3 : 1));
+  fly.vel.lerp(_d, 1 - Math.exp(-dt * 5));                  // плавный разгон и торможение
+  if (fly.vel.lengthSq() < 1e-6 && _d.lengthSq() === 0) fly.vel.set(0, 0, 0);
+  camera.position.addScaledVector(fly.vel, dt);
+}
+function flyHud(){
+  const h = $('#flyHud');
+  h.hidden = !fly.on;
+  h.textContent = 'Полёт · WASD — движение · Пробел/C — вверх/вниз · Shift — ускорение · колесо — скорость (' + fly.speed.toFixed(1) + ' бл/с) · Esc/F — выход' + (fly.locked ? '' : ' · зажмите кнопку мыши, чтобы осматриваться');
+  $('#cross').hidden = !(fly.on && fly.locked);
+}
+function enterFly(){
+  if (fly.on) return;
+  fly.on = true; controls.enabled = false;
+  camera.getWorldDirection(_d);
+  fly.yaw = fly.tyaw = Math.atan2(-_d.x, -_d.z);
+  fly.pitch = fly.tpitch = Math.asin(Math.max(-1, Math.min(1, _d.y)));
+  fly.vel.set(0, 0, 0); fly.keys.clear(); fly.hadLock = false;
+  if (!fly.userSpeed) { const b = state.built && state.built.bounds; fly.speed = b ? Math.max(3, Math.max(b.maxX - b.minX, b.maxY - b.minY, b.maxZ - b.minZ + 1) / 6) : 6; }
+  camera.near = 0.05; camera.updateProjectionMatrix();
+  try { const p = cv3.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  $('#btnFly').classList.add('on'); $('#hint3d').hidden = true; flyHud();
+}
+function exitFly(){
+  if (!fly.on) return;
+  fly.on = false; fly.dragging = false; fly.keys.clear();
+  if (document.pointerLockElement === cv3) document.exitPointerLock();
+  fly.locked = false;
+  camera.getWorldDirection(_d);
+  const dist = Math.max(3, Math.min(300, camera.position.distanceTo(controls.target)));
+  controls.target.copy(camera.position).addScaledVector(_d, dist);
+  camera.near = Math.max(0.05, dist / 500); camera.updateProjectionMatrix();
+  controls.enabled = true; controls.update();
+  $('#btnFly').classList.remove('on'); $('#hint3d').hidden = false; flyHud(); requestRender();
+}
+document.addEventListener('pointerlockchange', () => {
+  fly.locked = document.pointerLockElement === cv3;
+  if (fly.locked) fly.hadLock = true; else if (fly.on && fly.hadLock) { exitFly(); return; }
+  if (fly.on) flyHud();
+});
+document.addEventListener('mousemove', e => {
+  if (!fly.on || !(fly.locked || fly.dragging)) return;
+  const mx = Math.abs(e.movementX) > 250 ? 0 : e.movementX, my = Math.abs(e.movementY) > 250 ? 0 : e.movementY;   // защита от скачков
+  fly.tyaw -= mx * 0.0022;
+  fly.tpitch = Math.max(-1.48, Math.min(1.48, fly.tpitch - my * 0.0022));
+});
+addEventListener('blur', () => fly.keys.clear());
+let lastT = performance.now();
+(function loop(now){
+  const dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000) || 0); lastT = now;
+  if (fly.on) { updateFly(dt); dirty = true; }
+  if (vis.active) { stepVis(dt); dirty = true; }
+  if (dirty) { dirty = false; if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; } renderer.render(scene, camera); }
+  requestAnimationFrame(loop);
+})(performance.now());
+
+const sceneRoot = new THREE.Group(); scene.add(sceneRoot);
+const overlay = new THREE.Group(); scene.add(overlay);
+const selBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.06, 1.06, 1.06)), new THREE.LineBasicMaterial({ color: 0xffe14a, depthTest: false }));
+selBox.visible = false; selBox.renderOrder = 10; overlay.add(selBox);
+const rulerA = new THREE.LineSegments(selBox.geometry, new THREE.LineBasicMaterial({ color: 0x4de1ff, depthTest: false }));
+const rulerB = new THREE.LineSegments(selBox.geometry, new THREE.LineBasicMaterial({ color: 0xff6bd6, depthTest: false }));
+rulerA.visible = rulerB.visible = false; rulerA.renderOrder = rulerB.renderOrder = 10; overlay.add(rulerA, rulerB);
+let rulerLine = null;
+const anchorBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.0, 1.0, 1.0)), new THREE.LineBasicMaterial({ color: 0xffa030 }));
+anchorBox.visible = false; overlay.add(anchorBox);
+
+function disposeScene(){
+  for (const ch of [...sceneRoot.children]) {
+    sceneRoot.remove(ch);
+    if (ch.geometry) ch.geometry.dispose();
+    if (ch.dispose) ch.dispose();
+  }
+}
+
+/* ---------- сборка сцены ---------- */
+const DIRS = ['px', 'nx', 'py', 'ny', 'pz', 'nz'];
+const matCache = new Map();
+function getMat(path, tex, f){
+  const tinted = !!(path && f && (f.rgb || f.biome > 0));
+  const k = (path || '#fb') + (tinted ? '|T|' + (f.rgb ? rgbHex(f.rgb) : '-') + '|' + (f.biome > 0 ? 1 : 0) : '');
+  if (matCache.has(k)) return matCache.get(k);
+  const m = patchMat(new THREE.MeshLambertMaterial({ map: (tinted ? tintedEntry(tex, effRGB(f), path) : tex).tex, alphaTest: 0.5 }));
+  if (tinted) m.userData.src = { entry: tex, f, path };
+  matCache.set(k, m); return m;
+}
+function bakedGeometry(bk){
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(bk.pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(bk.nrm, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(bk.uv, 2));
+  geo.setIndex(bk.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(bk.idx, 1) : new THREE.Uint16BufferAttribute(bk.idx, 1));
+  return geo;
+}
+/** Иконка модели для 2D: рендер сверху ортографической камерой (отдельный маленький рендерер). */
+let iconR = null;
+function modelIcon(g, fb){
+  try {
+    if (!iconR) { iconR = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true }); iconR.setPixelRatio(1); iconR.setSize(96, 96, false); iconR.outputEncoding = THREE.sRGBEncoding; iconR.setClearColor(0x000000, 0); }
+    const sc = new THREE.Scene();
+    sc.add(new THREE.AmbientLight(0xffffff, 0.85));
+    const dl = new THREE.DirectionalLight(0xffffff, 0.5); dl.position.set(-0.3, 1, 0.4); sc.add(dl);
+    const tf = g.modelTex.t && g.R.tint && (g.R.tint.base.rgb || g.R.tint.base.biome > 0) ? g.R.tint.base : null;
+    const ent = tf ? tintedEntry(g.modelTex.t, effRGB(tf), g.modelTex.path) : (g.modelTex.t || fb);
+    const mat = new THREE.MeshLambertMaterial({ map: ent.tex, alphaTest: 0.5, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(bakedGeometry(g.baked), mat); sc.add(mesh);
+    const cam = new THREE.OrthographicCamera(-0.5, 0.5, 0.5, -0.5, 0.01, 60);
+    cam.position.set(0, 30, 0); cam.up.set(0, 0, -1); cam.lookAt(0, 0, 0);   // вправо = +X, вниз по экрану = +Z
+    iconR.clear(); iconR.render(sc, cam);
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    c.getContext('2d').drawImage(iconR.domElement, 0, 0, 64, 64);
+    mesh.geometry.dispose(); mat.dispose();
+    return c;
+  } catch (e) { return null; }
+}
+let modelMat = null;
+function getModelMat(){ return modelMat || (modelMat = patchMat(new THREE.MeshLambertMaterial({ color: 0xff9a3c }))); }
+const _mDown = new THREE.Matrix4().makeTranslation(0, -0.5, 0);
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(1, 1, 1);
+
+async function buildScene(){
+  const P = state.prefab;
+  disposeScene(); state.built = null; pWarn.clear(); state.unresolved.clear(); state.missingTex.clear();
+  state.sel = -1; clearRuler(true);
+  if (!P) { renderAll(); return; }
+  for (const w of P.warnings) warnP(w.code, w.msg, w.ex);
+  const B = P.prefab.blocks, N = B.length;
+  const X = new Int32Array(N), Y = new Int32Array(N), Z = new Int32Array(N);
+  const grp = new Int32Array(N).fill(-1);       // индекс группы; -1 = Empty/filler
+  const groups = [], gmap = new Map();
+  let empties = 0, fillers = 0;
+  let minX = 1e9, minY = 1e9, minZ = 1e9, maxX = -1e9, maxY = -1e9, maxZ = -1e9;
+  const names = new Set();
+  const setStatus = t => { $('#fileInfo').textContent = t; };
+
+  const resolver = state.resolver;
+  for (let i = 0; i < N; i++) {
+    const b = B[i];
+    const x = Math.floor(b.x), y = Math.floor(b.y), z = Math.floor(b.z);
+    X[i] = x; Y[i] = y; Z[i] = z;
+    if (b.name === 'Empty') { empties++; }
+    else {
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+      names.add(b.name);
+      if (b.filler) fillers++;
+      else {
+        let kind, key, R = resolver ? resolver.resolveBlock(b.name) : { status: 'unknown', drawType: 'Cube', variants: [] };
+        let vi = 0, faces = null, reason = null;
+        if (R.status === 'unknown') { kind = 'missing'; reason = state.res ? 'нет определения в Server/Item/Items' : 'ресурсы игры не подключены'; }
+        else if (R.status === 'noblocktype') { kind = 'missing'; reason = 'у предмета нет BlockType'; }
+        else if (R.drawType === 'Empty') { kind = 'invisible'; }
+        else if (R.drawType === 'Model') {
+          if (!R.customModel) { kind = 'missing'; reason = 'DrawType Model без CustomModel'; }
+          else { kind = 'model'; vi = pickVariant(R.modelTextures, x, y, z); }
+        }
+        else if (R.drawType === 'Cube' || R.drawType === 'CubeWithModel') {
+          if (!R.variants.length) { kind = 'missing'; reason = 'нет Textures в определении'; }
+          else { kind = 'cube'; vi = pickVariant(R.variants, x, y, z); faces = R.variants[vi].faces; }
+        } else { kind = 'placeholder'; reason = 'DrawType «' + R.drawType + '» не поддерживается — показана заглушка'; warnP('draw', 'Неподдерживаемый DrawType', R.drawType); }
+        if (reason) { const u = state.unresolved.get(b.name) || { reason, count: 0 }; u.count++; state.unresolved.set(b.name, u); }
+        if (R.tint && R.tint.multi) warnP('tintmulti', 'В Tint/TintXxx несколько цветов — используется первый', b.name);
+        if (R.modelAnim) warnP('anim', 'CustomModelAnimation не воспроизводится — модель в позе покоя', b.name);
+        const addG = (kd, v) => {
+          const k = kd + '|' + b.name + '|' + v;
+          let gi = gmap.get(k);
+          if (gi === undefined) { gi = groups.length; gmap.set(k, gi); groups.push({ key: k, kind: kd, name: b.name, vi: v, R, faces: kd === 'cube' ? faces : null, idx: [], tex: null, mesh: null }); }
+          groups[gi].idx.push(i); return gi;
+        };
+        grp[i] = addG(kind, vi);
+        // CubeWithModel: куб + модель поверх
+        if (R.drawType === 'CubeWithModel' && R.customModel && kind === 'cube') addG('model', pickVariant(R.modelTextures, x, y, z));
+      }
+    }
+    if ((i & 0xFFFF) === 0xFFFF) { setStatus('Подготовка блоков: ' + i + ' / ' + N); await tick(); }
+  }
+  if (!names.size) { warnP('empty', 'В префабе нет непустых блоков', ''); }
+
+  // текстуры
+  setStatus('Загрузка текстур…');
+  const paths = new Set();
+  for (const g of groups) if (g.faces) for (const p of g.faces) if (p) paths.add(p);
+  const pl = [...paths];
+  for (let i = 0; i < pl.length; i += 16) { await Promise.all(pl.slice(i, i + 16).map(loadTexture)); await tick(); }
+  const fb = getFallback();
+  for (const g of groups) {
+    if (g.kind === 'cube') {
+      g.tex = [];
+      for (let f = 0; f < 6; f++) {
+        const p = g.faces[f]; const t = p ? await loadTexture(p) : null;
+        if (!t) { g.tex.push({ path: p, t: null }); if (p) { /* missing tex warning already recorded */ } else warnP('face', 'У грани не задана текстура — запасная', g.name); }
+        else g.tex.push({ path: p, t });
+      }
+    }
+  }
+
+  // модели (.blockymodel)
+  setStatus('Загрузка моделей…');
+  const bakeCache = new Map();
+  for (const g of groups) {
+    if (g.kind !== 'model') continue;
+    const R = g.R, cwm = R.drawType === 'CubeWithModel';
+    const fail = why => {
+      if (cwm) { g.kind = 'invisible'; warnP('cwm', 'CubeWithModel: модель не загружена, показан только куб', g.name + ' — ' + why); return; }
+      g.kind = 'missing';
+      const u = state.unresolved.get(g.name) || { reason: why, count: 0 }; u.reason = why; u.count += g.idx.length; state.unresolved.set(g.name, u);
+    };
+    const cm = await loadModel(R.customModel);
+    if (!cm) { fail('не найден файл модели ' + R.customModel); continue; }
+    let tpath = null, t = null;
+    if (R.modelTextures.length) { tpath = R.modelTextures[Math.min(g.vi, R.modelTextures.length - 1)].path; t = await loadTexture(tpath); }
+    else for (const sp of siblingTextures(cm.real)) {
+      const r = state.res.lower.get(sp.toLowerCase());
+      if (r) { tpath = r; t = await loadTexture(r); break; }
+    }
+    if (!t) { g.texMissing = true; if (!R.modelTextures.length) warnP('modeltex', 'Для модели не задан CustomModelTexture и не найдена соседняя текстура', g.name); }
+    const bk = cm.real + '|' + (t ? tpath : '');
+    let baked = bakeCache.get(bk);
+    if (!baked) {
+      const tw = t ? t.canvas.width : 16, th = t ? t.canvas.height : 16;
+      baked = bakeBlockyModel(cm.json, modelDensity(cm.json, cm.real), tw, th);
+      bakeCache.set(bk, baked);
+      for (const nt of baked.notes) warnP('shade', 'Режим отображения модели не поддержан (используется обычное освещение)', nt);
+    }
+    if (!baked.faces) { fail('в модели нет видимой геометрии: ' + cm.real); continue; }
+    g.baked = baked; g.modelPath = cm.real; g.modelTex = { path: tpath, t };
+    await tick();
+  }
+
+  // занятость ячеек — для затенения от нависающих блоков (AO): ячейки сверху в столбцах 3×3
+  let occ = null, OW = 0, OD = 0, OH = 0, AO_DEPTH = N > 2500000 ? 3 : 5;
+  if (names.size) {
+    OW = maxX - minX + 1; OH = maxY - minY + 1; OD = maxZ - minZ + 1;
+    if (OW * OH * OD <= 90e6) {
+      occ = new Uint8Array(OW * OH * OD);
+      for (let i = 0; i < N; i++) if (B[i].name !== 'Empty') occ[(X[i] - minX) + OW * ((Z[i] - minZ) + OD * (Y[i] - minY))] = 1;
+    }
+  }
+  const aoOf = bi => {
+    if (!occ) return 1;
+    const x = X[bi] - minX, y = Y[bi] - minY, z = Z[bi] - minZ;
+    let c = 0, tot = 0;
+    for (let dy = 1; dy <= AO_DEPTH && y + dy < OH; dy++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const zz = z + dz; if (zz < 0 || zz >= OD) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx; if (xx < 0 || xx >= OW) continue;
+          c += occ[xx + OW * (zz + OD * (y + dy))];
+        }
+      }
+    }
+    tot = AO_DEPTH * 9;
+    return 1 - 0.45 * Math.min(1, (c / tot) * 1.8);
+  };
+
+  // меши
+  setStatus('Построение сцены…');
+  const meshes = [];
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+  const modelGeo = new THREE.BoxGeometry(0.62, 0.62, 0.62);
+  const bakedGeo = bakedGeometry;
+  const modelMatFor = g => {
+    const tf = g.modelTex.t && g.R.tint && (g.R.tint.base.rgb || g.R.tint.base.biome > 0) ? g.R.tint.base : null;
+    const key = 'M|' + (g.modelTex.t ? g.modelTex.path : '#fb') + '|' + (g.baked.doubleSided ? 2 : 1) + (tf ? '|T|' + (tf.rgb ? rgbHex(tf.rgb) : '-') + '|' + (tf.biome > 0 ? 1 : 0) : '');
+    let m = matCache.get(key);
+    if (!m) {
+      const ent = tf ? tintedEntry(g.modelTex.t, effRGB(tf), g.modelTex.path) : (g.modelTex.t || fb);
+      m = patchMat(new THREE.MeshLambertMaterial({ map: ent.tex, alphaTest: 0.5, side: g.baked.doubleSided ? THREE.DoubleSide : THREE.FrontSide }));
+      if (tf) m.userData.src = { entry: g.modelTex.t, f: tf, path: g.modelTex.path };
+      matCache.set(key, m);
+    }
+    return m;
+  };
+  for (const g of groups) {
+    if (g.kind === 'invisible') continue;
+    const n = g.idx.length;
+    const geo = g.kind === 'model' ? bakedGeo(g.baked) : (g.kind === 'placeholder' ? modelGeo : boxGeo).clone();
+    const aY = new Float32Array(n);
+    let mats;
+    if (g.kind === 'cube') mats = g.tex.map((o, fi) => getMat(o.t ? o.path : null, o.t || fb, g.R.tint && g.R.tint.faces[fi]));
+    else if (g.kind === 'model') mats = modelMatFor(g);
+    else if (g.kind === 'placeholder') mats = getModelMat();
+    else mats = getMat(null, fb);
+    const mesh = new THREE.InstancedMesh(geo, mats, n);
+    for (let k = 0; k < n; k++) {
+      const bi = g.idx[k], r = B[bi].rotation | 0;
+      const yaw = r & 3, pitch = (r >> 2) & 3, roll = (r >> 4) & 3;
+      // Ry * Rx * Rz
+      _e.set(0, 0, 0);
+      const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw * Math.PI / 2);
+      const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch * Math.PI / 2);
+      const qz = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), roll * Math.PI / 2);
+      _q.copy(qy).multiply(qx).multiply(qz);
+      _p.set(X[bi] + 0.5, Y[bi] + 0.5, Z[bi] + 0.5);
+      _m.compose(_p, _q, _s);
+      if (g.kind === 'model') _m.multiply(_mDown);   // начало модели — низ-центр ячейки
+      mesh.setMatrixAt(k, _m);
+      aY[k] = Y[bi];
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    geo.setAttribute('aY', new THREE.InstancedBufferAttribute(aY, 1));
+    const aoA = new Float32Array(n);
+    for (let k = 0; k < n; k++) aoA[k] = aoOf(g.idx[k]);
+    geo.setAttribute('aAO', new THREE.InstancedBufferAttribute(aoA, 1));
+    mesh.frustumCulled = false;
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.customDepthMaterial = getDepthMat(g.kind === 'cube' ? g.tex[2].t : g.kind === 'model' ? g.modelTex.t : null);
+    mesh.userData.group = g; g.mesh = mesh;
+    sceneRoot.add(mesh); meshes.push(mesh);
+    if (n > 5000) { await tick(); }
+  }
+
+  for (const g of groups) if (g.kind === 'model' && g.baked) g.icon = modelIcon(g, fb);
+  const cwmMap = new Map();
+  for (const g of groups) if (g.kind === 'model' && g.R.drawType === 'CubeWithModel') for (const bi of g.idx) cwmMap.set(bi, g);
+
+  // слои
+  const layers = new Map();
+  for (let i = 0; i < N; i++) if (grp[i] >= 0) { let a = layers.get(Y[i]); if (!a) layers.set(Y[i], a = []); a.push(i); }
+
+  const hasB = names.size > 0;
+  state.built = {
+    X, Y, Z, grp, groups, meshes, layers, N, empties, fillers,
+    bounds: hasB ? { minX, minY, minZ, maxX, maxY, maxZ } : null,
+    unique: names.size,
+    layerMaps: new Map(), cwm: cwmMap,
+    drawn: 0,
+  };
+  for (const g of groups) if (g.kind !== 'invisible') state.built.drawn += g.idx.length;
+  buildHelpers();
+  setFileInfo();
+  resetLayerControl();
+  resetCamera();
+  updateLighting();
+  fit2D();
+  renderAll();
+  renderWarnings(); updWarnBadge(); updateResDot();
+}
+
+let helperObjs = [];
+function buildHelpers(){
+  for (const o of helperObjs) { scene.remove(o); o.geometry && o.geometry.dispose(); }
+  helperObjs = [];
+  const b = state.built && state.built.bounds; if (!b) return;
+  const add = o => { scene.add(o); helperObjs.push(o); };
+  const dx = b.maxX - b.minX + 1, dy = b.maxY - b.minY + 1, dz = b.maxZ - b.minZ + 1;
+  const span = Math.max(dx, dz) + 8;
+  const size = Math.ceil(span / 2) * 2;
+  const grid = new THREE.GridHelper(size, size, 0x4a525e, 0x2a2f36);
+  grid.position.set(Math.round((b.minX + b.maxX + 1) / 2), b.minY, Math.round((b.minZ + b.maxZ + 1) / 2));
+  add(grid);
+  const box = new THREE.Box3(new THREE.Vector3(b.minX, b.minY, b.minZ), new THREE.Vector3(b.maxX + 1, b.maxY + 1, b.maxZ + 1));
+  const bh = new THREE.Box3Helper(box, 0x6a7380); add(bh);
+  const L = Math.max(dx, dy, dz) * 0.6 + 2;
+  const ax = (c, v) => {
+    const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(b.minX, b.minY, b.minZ), new THREE.Vector3(b.minX, b.minY, b.minZ).add(v.multiplyScalar(L))]);
+    const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: c })); add(l);
+  };
+  ax(0xee5555, new THREE.Vector3(1, 0, 0)); ax(0x55dd55, new THREE.Vector3(0, 1, 0)); ax(0x5588ff, new THREE.Vector3(0, 0, 1));
+  const a = state.prefab.prefab.anchor;
+  anchorBox.position.set(a[0] + 0.5, a[1] + 0.5, a[2] + 0.5); anchorBox.visible = true;
+}
+
+function resetCamera(){
+  const b = state.built && state.built.bounds;
+  if (!b) { camera.position.set(12, 10, 14); controls.target.set(0, 0, 0); controls.update(); requestRender(); return; }
+  const c = new THREE.Vector3((b.minX + b.maxX + 1) / 2, (b.minY + b.maxY + 1) / 2, (b.minZ + b.maxZ + 1) / 2);
+  const r = Math.max(2, Math.hypot(b.maxX - b.minX + 1, b.maxY - b.minY + 1, b.maxZ - b.minZ + 1) / 2);
+  const dist = r / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.05;
+  const d = new THREE.Vector3(0.75, 0.62, 1).normalize();
+  camera.position.copy(c).addScaledVector(d, dist);
+  camera.near = Math.max(0.05, dist / 500); camera.far = dist * 20; camera.updateProjectionMatrix();
+  controls.target.copy(c); controls.update(); requestRender();
+}
+
+/* ---------- слои ---------- */
+function layerCount(y){ const B = state.built; const a = B && B.layers.get(y); return a ? a.length : 0; }
+function resetLayerControl(){
+  const B = state.built, s = $('#layer');
+  if (!B || !B.bounds) { s.disabled = true; $('#layerY').textContent = '–'; $('#layerCnt').textContent = '–'; $('#yRange').textContent = '–'; return; }
+  state.minY = B.bounds.minY; state.maxY = B.bounds.maxY;
+  s.min = state.minY; s.max = state.maxY; s.step = 1; s.disabled = false;
+  initVis(state.minY, state.maxY);
+  setLayer(state.minY); setVisTargets(true);
+  $('#yRange').textContent = state.minY + '…' + state.maxY;
+}
+function setLayer(y){
+  y = Math.max(state.minY, Math.min(state.maxY, Math.round(y)));
+  state.layer = y; setVisTargets(false);
+  $('#layer').value = y; $('#layerY').textContent = y; $('#layerCnt').textContent = layerCount(y);
+  requestRender(); requestDraw2D(); updateBuildInfo(); if (bomScope === 'layer') requestBom();
+}
+function setMode(m){
+  state.mode = m;
+  for (const b of document.querySelectorAll('#modeSeg button')) b.classList.toggle('on', b.dataset.m === m);
+  setVisTargets(false);
+}
+function blockVisible(bi){
+  const y = state.built.Y[bi];
+  return state.mode === 'all' || (state.mode === 'only' ? y === state.layer : y <= state.layer);
+}
+
+/* ---------- выбор блока ---------- */
+const ray = new THREE.Raycaster();
+function pick3D(ev){
+  const B = state.built; if (!B || !B.meshes.length) return -1;
+  const r = cv3.getBoundingClientRect();
+  const cx = fly.locked ? r.left + r.width / 2 : ev.clientX, cy = fly.locked ? r.top + r.height / 2 : ev.clientY;
+  const ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(B.meshes, false);
+  for (const h of hits) {
+    const g = h.object.userData.group; const bi = g.idx[h.instanceId];
+    if (blockVisible(bi)) return bi;
+  }
+  return -1;
+}
+function selectBlock(bi, opts){
+  state.sel = bi;
+  const B = state.built;
+  if (bi >= 0) {
+    const y = B.Y[bi];
+    selBox.position.set(B.X[bi] + 0.5, y + 0.5, B.Z[bi] + 0.5);
+    if (opts && opts.moveLayer && y !== state.layer) setLayer(y);
+    if (opts && opts.center2D) center2DOn(B.X[bi], B.Z[bi]);
+  }
+  selBox.visible = bi >= 0;
+  renderSelInfo(); requestRender(); requestDraw2D();
+}
+function blockTitle(name){
+  const res = state.res; if (!res || !res.lang.size) return null;
+  const id = name[0] === '*' ? name.slice(1).split('_State_Definitions_')[0] : name;
+  const item = res.items.get(id);
+  const keys = [];
+  const tp = item && item.TranslationProperties && item.TranslationProperties.Name;
+  if (tp) keys.push(tp);
+  keys.push('server.items.' + id + '.name', 'items.' + id + '.name');
+  for (const k of keys) if (res.lang.has(k)) return res.lang.get(k);
+  return null;
+}
+function renderSelInfo(){
+  const el = $('#infoSel'), B = state.built, bi = state.sel;
+  $('#selCard').hidden = !(B && bi >= 0);
+  if (!B || bi < 0) { el.innerHTML = ''; return; }
+  const b = state.prefab.prefab.blocks[bi], g = B.groups[B.grp[bi]], R = g.R;
+  const title = blockTitle(b.name);
+  const rot = decodeRotation(b.rotation);
+  let h = '<div class="ch"><b>БЛОК</b><span class="sp"></span><button class="flat x" data-act="desel" title="Снять выделение">✕</button></div>';
+  h += '<div><code>' + esc(b.name) + '</code>' + (title ? ' — <b>' + esc(title) + '</b>' : '') + '</div>';
+  h += '<div><span class="k">X/Y/Z:</span> <code>' + b.x + ', ' + b.y + ', ' + b.z + '</code> · <span class="k">rotation:</span> <code>' + (b.rotation === undefined ? '—' : b.rotation) + '</code>' +
+    (b.rotation ? ' <span class="dim">(yaw ' + rot.yaw + ', pitch ' + rot.pitch + ', roll ' + rot.roll + '; pitch/roll — предположение)</span>' : '') + '</div>';
+  h += '<div><span class="k">Тип:</span> ' + esc(R.status === 'ok' ? R.drawType : R.status === 'unknown' ? 'нет определения' : R.status === 'notex' ? 'нет текстур' : R.status) + ' <span class="chip">' + ({ cube: 'куб', model: 'модель', missing: 'нет данных', placeholder: 'заглушка', invisible: 'невидимый' }[g.kind] || g.kind) + '</span>' +
+    (R.itemPath ? '' : '') + '</div>';
+  if (g.kind === 'cube') {
+    const names = ['+X', '−X', '+Y', '−Y', '+Z', '−Z'];
+    h += '<div><span class="k">Вариант ' + (g.vi + 1) + '/' + R.variants.length + ':</span> ' + g.tex.map((o, i) => names[i] + ' <code' + (o.t ? '' : ' class="bad"') + '>' + esc(o.path || '—') + '</code>').join(' · ') + '</div>';
+  }
+  if (g.kind === 'model' || B.cwm.has(bi)) {
+    const mg = g.kind === 'model' ? g : B.cwm.get(bi);
+    h += '<div><span class="k">Модель:</span> <code>' + esc(mg.modelPath || mg.R.customModel) + '</code> · <span class="k">текстура:</span> <code' + (mg.modelTex && mg.modelTex.t ? '' : ' class="bad"') + '>' + esc((mg.modelTex && mg.modelTex.path) || '—') + '</code></div>';
+  }
+  if (R.tint && R.tint.any) {
+    const f = R.tint.faces[2];
+    h += '<div><span class="k">Тонирование:</span> ' + (f.rgb ? 'Tint <code>' + rgbHex(f.rgb) + '</code> ' : '') + (f.biome > 0 ? 'BiomeTint <code>' + f.biome + '</code> → ' + (tintState.enabled ? '<code>' + rgbHex(tintState.color) + '</code> (' + esc(tintState.label) + ')' : 'выключено') : '') + '</div>';
+  }
+  const extra = ['filler', 'support', 'components'].filter(k => b[k] !== undefined);
+  if (extra.length) h += '<div class="dim">' + extra.map(k => k + ': ' + esc(JSON.stringify(b[k]).slice(0, 120))).join(' · ') + '</div>';
+  el.innerHTML = h;
+}
+
+/* ---------- линейка ---------- */
+function ptEq(a, b){ return a && b && a.x === b.x && a.y === b.y && a.z === b.z; }
+function rulerPoint(p){
+  const r = state.ruler; if (!r.on) return;
+  if (r.a && r.b) { r.a = p; r.b = null; } else if (!r.a) r.a = p; else r.b = p;
+  updateRulerViz();
+}
+function clearRuler(keepMode){
+  state.ruler.a = state.ruler.b = null;
+  if (!keepMode) state.ruler.on = false;
+  $('#btnRuler').classList.toggle('on', state.ruler.on);
+  updateRulerViz();
+}
+function updateRulerViz(){
+  const r = state.ruler;
+  $('#btnRuler').classList.toggle('on', r.on);
+  const put = (m, p) => { m.visible = !!p; if (p) m.position.set(p.x + 0.5, p.y + 0.5, p.z + 0.5); };
+  put(rulerA, r.a); put(rulerB, r.b);
+  if (rulerLine) { overlay.remove(rulerLine); rulerLine.geometry.dispose(); rulerLine = null; }
+  if (r.a && r.b) {
+    rulerLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(r.a.x + .5, r.a.y + .5, r.a.z + .5), new THREE.Vector3(r.b.x + .5, r.b.y + .5, r.b.z + .5)]), new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false }));
+    rulerLine.renderOrder = 9; overlay.add(rulerLine);
+  }
+  const el = $('#infoRuler');
+  $('#rulerCard').hidden = !r.on;
+  let h = '';
+  if (!r.on) h += '<span class="dim">Выключена</span>';
+  else if (!r.a) h += '<span class="dim">Выберите первую точку (ячейка в 2D или блок в 3D)</span>';
+  else {
+    const f = p => '<code>' + p.x + ', ' + p.y + ', ' + p.z + '</code>';
+    h += '<div><span style="color:#4de1ff">A</span> ' + f(r.a) + (r.b ? ' · <span style="color:#ff6bd6">B</span> ' + f(r.b) : '') + '</div>';
+    if (!r.b) h += '<span class="dim">Выберите вторую точку</span>';
+    else {
+      const dx = r.b.x - r.a.x, dy = r.b.y - r.a.y, dz = r.b.z - r.a.z;
+      const ax = Math.abs(dx), ay = Math.abs(dy), az = Math.abs(dz);
+      const f2 = n => (Math.round(n * 100) / 100).toString();
+      // Считаем вместе с обоими крайними блоками: между блоками на расстоянии 4 — это 5 блоков.
+      const straight = Math.hypot(dx, dy, dz) + 1;
+      h += '<div><span class="k">По прямой (вместе с крайними):</span> <b>' + f2(straight) + '</b> бл. <span class="dim">· между центрами ' + f2(Math.hypot(dx, dy, dz)) + '</span></div>';
+      h += '<div><span class="k">По осям:</span> X <b>' + (ax + 1) + '</b> · ' + (dy === 0 ? '' : 'Y <b>' + (ay + 1) + '</b> · ') + 'Z <b>' + (az + 1) + '</b> бл. <span class="dim">(Δ ' + dx + ', ' + dy + ', ' + dz + ')</span></div>';
+      h += '<div><span class="k">По клеткам (путь по сторонам):</span> <b>' + (ax + ay + az + 1) + '</b> бл.</div>';
+    }
+  }
+  el.innerHTML = h;
+  requestRender(); requestDraw2D();
+}
+
+/* ---------- клики в 3D ---------- */
+let down3 = null;
+cv3.addEventListener('pointerdown', e => { down3 = { x: e.clientX, y: e.clientY, b: e.button }; if (fly.on && !fly.locked) fly.dragging = true; });
+addEventListener('pointerup', () => { fly.dragging = false; });
+cv3.addEventListener('wheel', e => {
+  if (!fly.on) return;
+  e.preventDefault();
+  fly.speed = Math.max(0.5, Math.min(200, fly.speed * Math.pow(1.0015, -e.deltaY))); fly.userSpeed = true; flyHud();
+}, { passive: false });
+cv3.addEventListener('pointerup', e => {
+  if (!down3 || down3.b !== 0) return;
+  const moved = Math.hypot(e.clientX - down3.x, e.clientY - down3.y); down3 = null;
+  if (moved > 4 || !state.built) return;
+  const bi = pick3D(e); const B = state.built;
+  if (state.ruler.on) { if (bi >= 0) rulerPoint({ x: B.X[bi], y: B.Y[bi], z: B.Z[bi] }); return; }
+  selectBlock(bi, { moveLayer: bi >= 0, center2D: bi >= 0 });
+});
+
+/* ===================== 2D ===================== */
+const cv2 = $('#cv2d'), pane2 = $('#pane2d'), ctx = cv2.getContext('2d');
+const v2 = { s: 16, ox: 0, oz: 0, w: 1, h: 1, dpr: 1, hover: null, ready: false };
+let draw2dQ = false;
+function requestDraw2D(){ if (draw2dQ) return; draw2dQ = true; requestAnimationFrame(() => { draw2dQ = false; draw2D(); }); }
+function resize(){
+  const dpr = window.devicePixelRatio || 1;
+  let r = pane3.getBoundingClientRect();
+  renderer.setPixelRatio(dpr); renderer.setSize(r.width, r.height, false);
+  camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix(); requestRender();
+  r = pane2.getBoundingClientRect();
+  v2.w = r.width; v2.h = r.height; v2.dpr = dpr;
+  cv2.width = Math.max(1, Math.round(r.width * dpr)); cv2.height = Math.max(1, Math.round(r.height * dpr));
+  requestDraw2D();
+}
+new ResizeObserver(resize).observe(pane3); new ResizeObserver(resize).observe(pane2);
+
+function fit2D(){
+  const b = state.built && state.built.bounds;
+  if (!b) { v2.s = 16; v2.ox = v2.w / 2; v2.oz = v2.h / 2; requestDraw2D(); return; }
+  const w = b.maxX - b.minX + 1, h = b.maxZ - b.minZ + 1, pad = 30;
+  v2.s = Math.max(2, Math.min(64, Math.min((v2.w - pad) / w, (v2.h - pad) / h)));
+  v2.ox = v2.w / 2 - (b.minX + w / 2) * v2.s; v2.oz = v2.h / 2 - (b.minZ + h / 2) * v2.s;
+  requestDraw2D();
+}
+function center2DOn(x, z){
+  const sx = v2.ox + (x + .5) * v2.s, sz = v2.oz + (z + .5) * v2.s;
+  if (sx < 20 || sx > v2.w - 20 || sz < 20 || sz > v2.h - 20) { v2.ox = v2.w / 2 - (x + .5) * v2.s; v2.oz = v2.h / 2 - (z + .5) * v2.s; }
+}
+function layerMap(y){
+  const B = state.built; if (!B) return null;
+  let m = B.layerMaps.get(y); if (m) return m;
+  m = new Map();
+  const a = B.layers.get(y) || [];
+  for (const bi of a) m.set(B.X[bi] + ',' + B.Z[bi], bi);
+  B.layerMaps.set(y, m);
+  if (B.layerMaps.size > 6) B.layerMaps.delete(B.layerMaps.keys().next().value);
+  return m;
+}
+function draw2D(){
+  const B = state.built, g = ctx, d = v2.dpr;
+  g.setTransform(d, 0, 0, d, 0, 0);
+  g.fillStyle = '#1c1e25'; g.fillRect(0, 0, v2.w, v2.h);
+  if (!B || !B.bounds) return;
+  const s = v2.s, ox = v2.ox, oz = v2.oz, b = B.bounds;
+  // область постройки
+  g.fillStyle = '#242732'; g.fillRect(ox + b.minX * s, oz + b.minZ * s, (b.maxX - b.minX + 1) * s, (b.maxZ - b.minZ + 1) * s);
+  const x0 = Math.floor(-ox / s), x1 = Math.ceil((v2.w - ox) / s), z0 = Math.floor(-oz / s), z1 = Math.ceil((v2.h - oz) / s);
+  // сетка
+  if (s >= 6) {
+    g.strokeStyle = '#2d313d'; g.lineWidth = 1; g.beginPath();
+    for (let x = x0; x <= x1; x++) { const px = Math.round(ox + x * s) + .5; g.moveTo(px, 0); g.lineTo(px, v2.h); }
+    for (let z = z0; z <= z1; z++) { const pz = Math.round(oz + z * s) + .5; g.moveTo(0, pz); g.lineTo(v2.w, pz); }
+    g.stroke();
+  }
+  // блоки слоя
+  g.imageSmoothingEnabled = false;
+  const arr = B.layers.get(state.layer) || [];
+  const P = state.prefab.prefab.blocks;
+  for (const bi of arr) {
+    const x = B.X[bi], z = B.Z[bi];
+    if (x < x0 - 1 || x > x1 || z < z0 - 1 || z > z1) continue;
+    const gr = B.groups[B.grp[bi]], px = ox + x * s, pz = oz + z * s;
+    const rot = P[bi].rotation | 0;
+    const tile = img => {
+      if ((rot & 3) && !(rot >> 2)) {
+        g.save(); g.translate(px + s / 2, pz + s / 2); g.rotate(-(rot & 3) * Math.PI / 2); g.drawImage(img, -s / 2, -s / 2, s, s); g.restore();
+      } else g.drawImage(img, px, pz, s, s);
+      if (rot >> 2 && s >= 10) { g.fillStyle = '#000a'; g.fillRect(px, pz, 4, 4); }
+    };
+    if (gr.kind === 'cube') {
+      if (gr._tv !== tintVer) {
+        const o = gr.tex[2], tf = gr.R.tint && gr.R.tint.faces[2];
+        gr._top = (o.t ? tintedEntry(o.t, effRGB(tf), o.path) : getFallback()).canvas; gr._tv = tintVer;
+      }
+      tile(gr._top);
+      // CubeWithModel: модель поверх куба
+      const gm = B.cwm && B.cwm.get(bi); if (gm && gm.icon) tile(gm.icon);
+    } else if (gr.kind === 'model' && gr.icon) {
+      tile(gr.icon);
+    } else if (gr.kind === 'missing') {
+      g.drawImage(getFallback().canvas, px, pz, s, s);
+    } else if (gr.kind === 'model' || gr.kind === 'placeholder') {
+      g.fillStyle = '#ff9a3c'; g.fillRect(px + 1, pz + 1, s - 2, s - 2);
+      if (s >= 10) { g.fillStyle = '#2a1500'; g.font = 'bold ' + Math.floor(s * .6) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('M', px + s / 2, pz + s / 2 + 1); }
+    } else {
+      g.strokeStyle = '#555c68'; g.beginPath(); g.moveTo(px + 2, pz + 2); g.lineTo(px + s - 2, pz + s - 2); g.moveTo(px + s - 2, pz + 2); g.lineTo(px + 2, pz + s - 2); g.stroke();
+    }
+  }
+  // подписи осей
+  g.fillStyle = '#6d7683'; g.font = '10px ui-monospace,Menlo,monospace'; g.textAlign = 'center'; g.textBaseline = 'top';
+  const step = s >= 28 ? 1 : s >= 14 ? 2 : s >= 7 ? 5 : 10;
+  for (let x = x0; x <= x1; x++) if (x % step === 0) g.fillText(x, ox + (x + .5) * s, 2);
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  for (let z = z0; z <= z1; z++) if (z % step === 0) g.fillText(z, 3, oz + (z + .5) * s);
+  // anchor
+  const a = state.prefab.prefab.anchor;
+  if (a[1] === state.layer) { g.strokeStyle = '#ffa030'; g.lineWidth = 1.5; g.setLineDash([3, 2]); g.strokeRect(ox + a[0] * s + 1, oz + a[2] * s + 1, s - 2, s - 2); g.setLineDash([]); }
+  const box = (x, z, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.strokeRect(ox + x * s + 1, oz + z * s + 1, s - 2, s - 2); };
+  if (state.sel >= 0 && B.Y[state.sel] === state.layer) box(B.X[state.sel], B.Z[state.sel], '#ffe14a', 2);
+  if (v2.hover) box(v2.hover.x, v2.hover.z, '#ffffffaa', 1);
+  const r = state.ruler;
+  if (r.a && r.a.y === state.layer) box(r.a.x, r.a.z, '#4de1ff', 2.5);
+  if (r.b && r.b.y === state.layer) box(r.b.x, r.b.z, '#ff6bd6', 2.5);
+  if (r.a && r.b && r.a.y === state.layer && r.b.y === state.layer) {
+    g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.setLineDash([5, 3]); g.beginPath();
+    g.moveTo(ox + (r.a.x + .5) * s, oz + (r.a.z + .5) * s); g.lineTo(ox + (r.b.x + .5) * s, oz + (r.b.z + .5) * s); g.stroke(); g.setLineDash([]);
+    const dx = r.b.x - r.a.x, dz = r.b.z - r.a.z, mx = ox + (r.a.x + r.b.x + 1) / 2 * s, mz = oz + (r.a.z + r.b.z + 1) / 2 * s;
+    const adx = Math.abs(dx) + 1, adz = Math.abs(dz) + 1;
+    const t = dx === 0 || dz === 0 ? Math.max(adx, adz) + ' бл.' : (Math.round((Math.hypot(dx, dz) + 1) * 100) / 100) + ' бл. (X ' + adx + ', Z ' + adz + ')';
+    g.font = '12px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+    const tw = g.measureText(t).width + 8; g.fillStyle = '#000c'; g.fillRect(mx - tw / 2, mz - 20, tw, 17); g.fillStyle = '#fff'; g.fillText(t, mx, mz - 6);
+  }
+}
+function cellAt(ev){
+  const r = cv2.getBoundingClientRect();
+  return { x: Math.floor((ev.clientX - r.left - v2.ox) / v2.s), z: Math.floor((ev.clientY - r.top - v2.oz) / v2.s) };
+}
+let drag2 = null;
+cv2.addEventListener('pointerdown', e => { cv2.setPointerCapture(e.pointerId); drag2 = { x: e.clientX, y: e.clientY, ox: v2.ox, oz: v2.oz, moved: false, b: e.button }; });
+cv2.addEventListener('pointermove', e => {
+  const B = state.built;
+  if (drag2) {
+    const dx = e.clientX - drag2.x, dy = e.clientY - drag2.y;
+    if (Math.hypot(dx, dy) > 4) drag2.moved = true;
+    if (drag2.moved) { v2.ox = drag2.ox + dx; v2.oz = drag2.oz + dy; requestDraw2D(); }
+  }
+  const c = cellAt(e); v2.hover = B ? c : null;
+  if (B) {
+    const bi = (layerMap(state.layer) || new Map()).get(c.x + ',' + c.z);
+    $('#coord2d').textContent = 'X ' + c.x + '  Y ' + state.layer + '  Z ' + c.z + (bi !== undefined ? '  ·  ' + state.prefab.prefab.blocks[bi].name : '');
+  }
+  requestDraw2D();
+});
+cv2.addEventListener('pointerleave', () => { v2.hover = null; $('#coord2d').textContent = ''; requestDraw2D(); });
+cv2.addEventListener('pointerup', e => {
+  const d = drag2; drag2 = null;
+  if (!d || d.moved || d.b !== 0 || !state.built) return;
+  const c = cellAt(e);
+  if (state.ruler.on) { rulerPoint({ x: c.x, y: state.layer, z: c.z }); return; }
+  const bi = (layerMap(state.layer) || new Map()).get(c.x + ',' + c.z);
+  selectBlock(bi === undefined ? -1 : bi, {});
+});
+function zoom2(f, cx, cz){
+  const ns = Math.max(1.5, Math.min(120, v2.s * f)), k = ns / v2.s;
+  v2.ox = cx - (cx - v2.ox) * k; v2.oz = cz - (cz - v2.oz) * k; v2.s = ns; requestDraw2D();
+}
+cv2.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = cv2.getBoundingClientRect();
+  zoom2(Math.pow(1.0018, -e.deltaY), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+$('#z2in').onclick = () => zoom2(1.3, v2.w / 2, v2.h / 2);
+$('#z2out').onclick = () => zoom2(1 / 1.3, v2.w / 2, v2.h / 2);
+
+/* ===================== Смета ===================== */
+let bomOpen = false, bomScope = 'all', bomQ = '', bomSort = 'count', bomRows = [], bomPending = false;
+function bomKind(e){
+  const g = e.g, R = g.R;
+  if (g.kind === 'missing') return 'нет данных';
+  if (g.kind === 'invisible') return 'невидимый';
+  if (g.kind === 'placeholder') return 'прочее';
+  if (R && (R.drawType === 'Model' || R.drawType === 'CubeWithModel')) return 'модель';
+  return 'блок';
+}
+function bomCompute(){
+  const B = state.built; if (!B) return null;
+  const map = new Map(), blocks = state.prefab.prefab.blocks;
+  const add = bi => {
+    const gi = B.grp[bi]; if (gi < 0) return;
+    const nm = blocks[bi].name; let e = map.get(nm);
+    if (!e) { e = { name: nm, g: B.groups[gi], count: 0, first: bi }; e.kind = bomKind(e); map.set(nm, e); }
+    e.count++;
+  };
+  if (bomScope === 'all') for (let i = 0; i < B.N; i++) add(i);
+  else for (const bi of B.layers.get(state.layer) || []) add(bi);
+  const rows = [...map.values()];  let nb = 0, nm = 0, nx = 0;
+  for (const e of rows) { if (e.kind === 'модель') nm += e.count; else nb += e.count; if (e.kind === 'нет данных') nx += e.count; }
+  return { rows, blocks: nb, models: nm, unknown: nx };
+}
+function bomThumb(e){
+  const g = e.g;
+  if (g.kind === 'cube') { const o = g.tex[2], tf = g.R.tint && g.R.tint.faces[2]; return (o.t ? tintedEntry(o.t, effRGB(tf), o.path) : getFallback()).canvas; }
+  if (g.kind === 'model') return g.icon || null;
+  if (g.kind === 'missing') return getFallback().canvas;
+  return null;
+}
+function renderBom(){
+  bomPending = false;
+  if (!bomOpen) return;
+  const el = $('#bomList'), B = state.built;
+  $('#bomScopeLbl').textContent = bomScope === 'layer' ? 'слой Y ' + state.layer : '';
+  if (!B) { $('#bomSum').innerHTML = '<span class="dim">Откройте префаб</span>'; el.innerHTML = ''; bomRows = []; return; }
+  const d = bomCompute();
+  const q = bomQ.trim().toLowerCase();
+  let rows = d.rows.map(e => { e.title = blockTitle(e.name); return e; });
+  if (q) rows = rows.filter(e => e.name.toLowerCase().includes(q) || (e.title && e.title.toLowerCase().includes(q)));
+  const KORD = { 'блок': 0, 'модель': 1, 'прочее': 2, 'невидимый': 3, 'нет данных': 4 };
+  rows.sort(bomSort === 'name' ? (a, b) => (a.title || a.name).localeCompare(b.title || b.name)
+          : bomSort === 'kind' ? (a, b) => KORD[a.kind] - KORD[b.kind] || b.count - a.count
+          : (a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  bomRows = rows;
+  const f = n => n.toLocaleString(NUMBER_LOCALE);
+  $('#bomSum').innerHTML = 'Блоков: <b>' + f(d.blocks) + '</b> · Моделей: <b>' + f(d.models) + '</b> · Типов: <b>' + d.rows.length + '</b>' +
+    (d.unknown ? '<br><span class="bad">без определения/текстур: ' + f(d.unknown) + '</span>' : '') +
+    (bomScope === 'all' && B.fillers ? '<br><span class="dim">части крупных блоков (filler, ' + f(B.fillers) + ') не считаются</span>' : '');
+  el.innerHTML = '<table>' + rows.map((e, i) => '<tr class="r" data-i="' + i + '" title="Показать первый такой блок"><td><canvas width="22" height="22"></canvas></td><td>' +
+    '<div class="nm">' + esc(e.title || e.name) + '</div>' + (e.kind !== 'блок' ? '<span class="chip">' + e.kind + '</span> ' : '') +
+    '<div class="q">' + f(e.count) + ' шт.</div></td></tr>').join('') + '</table>' || '';
+  if (!rows.length) el.innerHTML = '<div class="dim" style="padding:10px">Нет блоков' + (q ? ' по запросу' : '') + '</div>';
+  el.querySelectorAll('tr.r').forEach(tr => {
+    const th = bomThumb(rows[+tr.dataset.i]), c = tr.querySelector('canvas');
+    if (th) { const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(th, 0, 0, 22, 22); }
+  });
+}
+function requestBom(){ if (!bomOpen || bomPending) return; bomPending = true; requestAnimationFrame(renderBom); }
+function setBom(open){
+  bomOpen = open; $('#bom').hidden = !open; $('#btnBom').classList.toggle('on', open);
+  if (open) renderBom();
+}
+$('#btnBom').onclick = () => setBom(!bomOpen);
+$('#bomX').onclick = () => setBom(false);
+for (const b of document.querySelectorAll('#bomScope button')) b.onclick = () => {
+  bomScope = b.dataset.s;
+  for (const x of document.querySelectorAll('#bomScope button')) x.classList.toggle('on', x === b);
+  renderBom();
+};
+$('#bomSort').onchange = e => { bomSort = e.target.value; renderBom(); };
+$('#bomFind').oninput = e => { bomQ = e.target.value; renderBom(); };
+$('#bomList').addEventListener('click', e => {
+  const tr = e.target.closest('tr.r'); if (!tr) return;
+  const row = bomRows[+tr.dataset.i]; if (!row) return;
+  selectBlock(row.first, { moveLayer: true, center2D: true });
+});
+function bomTable(sep){
+  const kind = e => e.kind;
+  return ['ID', 'Название', 'Тип', 'Количество'].map(translateUIString).join(sep) + '\n' +
+    bomRows.map(e => [e.name, e.title || '', translateUIString(kind(e)), e.count].map(v => { v = String(v); return /[;"\t\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(sep)).join('\n');
+}
+$('#bomCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText(bomTable('\t')); $('#bomCopy').textContent = 'Скопировано'; }
+  catch (e) { $('#bomCopy').textContent = 'Не удалось'; }
+  setTimeout(() => { $('#bomCopy').textContent = 'Копировать'; }, 1500);
+};
+$('#bomCsv').onclick = () => {
+  if (!bomRows.length) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + bomTable(';')], { type: 'text/csv;charset=utf-8' }));
+  a.download = (state.fileName || 'prefab').replace(/\.json$/i, '').replace(/\.prefab$/i, '') + (UI_LANG === 'ru' ? '_smeta' : '_build-list') + (bomScope === 'layer' ? '_Y' + state.layer : '') + '.csv';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+
+/* ===================== Информация ===================== */
+function setFileInfo(){
+  const P = state.prefab;
+  $('#fileInfo').textContent = P ? state.fileName : 'префаб не загружен';
+  $('#empty3d').style.display = P ? 'none' : 'flex';
+  updateBuildInfo();
+}
+function updateBuildInfo(){
+  const B = state.built, el = $('#infoBuild');
+  if (!B || !state.prefab) { el.innerHTML = 'Подключите ресурсы игры и откройте префаб'; return; }
+  const P = state.prefab.prefab, b = B.bounds, f = n => n.toLocaleString(NUMBER_LOCALE);
+  el.innerHTML = '<span><b>' + f(B.drawn) + '</b> блоков</span>' +
+    (b ? '<span>размер <b>' + (b.maxX - b.minX + 1) + ' × ' + (b.maxY - b.minY + 1) + ' × ' + (b.maxZ - b.minZ + 1) + '</b></span>' : '') +
+    '<span><b>' + B.unique + '</b> типов</span><span>anchor ' + P.anchor.join(', ') + '</span><span>формат v' + esc(P.version) + '</span>' +
+    '<span class="dim">filler ' + f(B.fillers) + ' · Empty ' + f(B.empties) + '</span>';
+}
+function renderAll(){ requestBom(); updateBuildInfo(); renderSelInfo(); updateRulerViz(); requestRender(); requestDraw2D(); }
+
+/* ===================== Загрузка префаба ===================== */
+async function loadPrefabFile(file){
+  if (/\.lpf$/i.test(file.name) || /\.prefab\.json\.lpf$/i.test(file.name)) { alert(translateUIString('Формат .lpf (сжатый бинарный) пока не поддерживается. Откройте соответствующий .prefab.json.')); return; }
+  $('#fileInfo').textContent = 'Чтение ' + file.name + '…';
+  await tick();
+  try {
+    const text = await file.text();
+    await tick();
+    const parsed = parsePrefab(parseJSONLoose(text));
+    state.prefab = parsed; state.fileName = file.name;
+    await buildScene();
+  } catch (e) {
+    $('#fileInfo').textContent = 'Ошибка: ' + e.message;
+    alert(translateUIString('Не удалось открыть префаб: ') + e.message);
+  }
+}
+$('#btnOpen').onclick = () => $('#fPrefab').click();
+$('#btnOpen2').onclick = () => $('#fPrefab').click();
+$('#infoSel').addEventListener('click', e => { if (e.target.closest('[data-act="desel"]')) selectBlock(-1); });
+$('#fPrefab').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) loadPrefabFile(f); };
+let dragN = 0;
+addEventListener('dragenter', e => { e.preventDefault(); dragN++; $('#drop').style.display = 'flex'; });
+addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; $('#drop').style.display = 'none'; } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); dragN = 0; $('#drop').style.display = 'none'; const f = e.dataTransfer.files[0]; if (f) loadPrefabFile(f); });
+
+/* ===================== Ресурсы: UI и сохранение handle ===================== */
+const idb = {
+  db: null,
+  open(){ return this.db ? Promise.resolve(this.db) : new Promise((res, rej) => { const r = indexedDB.open('hytale-prefab-viewer', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => res(this.db = r.result); r.onerror = () => rej(r.error); }); },
+  async get(k){ const db = await this.open(); return new Promise((res, rej) => { const q = db.transaction('h').objectStore('h').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+  async set(k, v){ const db = await this.open(); return new Promise((res, rej) => { const q = db.transaction('h', 'readwrite').objectStore('h').put(v, k); q.onsuccess = () => res(); q.onerror = () => rej(q.error); }); },
+  async del(k){ const db = await this.open(); return new Promise((res, rej) => { const q = db.transaction('h', 'readwrite').objectStore('h').delete(k); q.onsuccess = () => res(); q.onerror = () => rej(q.error); }); },
+};
+const resDlg = $('#resDlg');
+function resProg(f, text){ $('#resBar').style.width = Math.round(f * 100) + '%'; if (text) $('#resStatus').textContent = text; }
+function updateResDot(){
+  const ok = state.res && state.res.items.size > 0;
+  const d = $('#resDot'); d.className = ok ? 'ok' : 'bad';
+  $('#btnRes').title = ok ? 'Ресурсы подключены: ' + state.res.src.label : 'Ресурсы не подключены';
+}
+function renderResReport(){
+  const r = state.res; const el = $('#resReport');
+  if (!r) { el.innerHTML = ''; return; }
+  const s = r.stats;
+  let h = '<table><tr><th>Компонент</th><th>Найдено</th></tr>' +
+    '<tr><td>Источник</td><td>' + esc(r.src.label) + ' (' + r.src.kind + '), файлов: ' + s.files.toLocaleString(NUMBER_LOCALE) + '</td></tr>' +
+    '<tr><td>Server/Item/Items</td><td>' + s.items + '</td></tr><tr><td>Server/Item/Block</td><td>' + s.blockTypes + '</td></tr>' +
+    '<tr><td>Common/BlockTextures (png)</td><td>' + s.texBT + '</td></tr><tr><td>Common/Blocks (png)</td><td>' + s.texBlk + '</td></tr>' +
+    '<tr><td>Прочие png в Common</td><td>' + s.texOther + '</td></tr><tr><td>.blockymodel</td><td>' + s.models + '</td></tr>' +
+    '<tr><td>Биомы с TintProvider</td><td>' + s.biomes + '</td></tr><tr><td>Строки локализации' + (r.langCode ? ' (' + esc(r.langCode) + ')' : '') + '</td><td>' + s.lang + '</td></tr></table>';
+  if (r.missing.length) h += '<p class="bad" style="margin:10px 0 2px">Не найдено:</p><ul class="l">' + r.missing.map(m => '<li>' + esc(m) + '</li>').join('') + '</ul>';
+  else h += '<p class="ok">Все необходимые компоненты найдены.</p>';
+  el.innerHTML = h;
+}
+async function connect(srcPromiseFn){
+  rWarn.clear(); resProg(0, 'Чтение источника…');
+  try {
+    const src = await srcPromiseFn();
+    resProg(0, 'Индексация (' + src.map.size.toLocaleString(NUMBER_LOCALE) + ' файлов)…'); await tick();
+    const res = await indexSource(src, resProg);
+    texCache.clear(); matCache.clear(); modelCache.clear(); tintTexCache.clear(); fallback = null;
+    state.src = src; state.res = res;
+    state.resolver = createResolver(res.items, res.blockTypes, (c, m, e) => warnP(c, m, e));
+    resProg(1, 'Готово: определений ' + res.items.size + ', текстур ' + (res.stats.texBT + res.stats.texBlk));
+    renderResReport(); updateResDot(); updWarnBadge(); autoTint();
+    if (state.prefab) await buildScene();
+    return true;
+  } catch (e) {
+    console.error(e); resProg(0, 'Ошибка: ' + e.message); return false;
+  }
+}
+/** Цвет биомного тонирования выбирается автоматически: Plains/Meadow → Forest → первый найденный биом → #4CAF50. */
+function autoTint(){
+  const bi = (state.res && state.res.biomes) || [];
+  const pick = bi.find(b => /plains|meadow/i.test(b.name)) || bi.find(b => /forest/i.test(b.name)) || bi[0];
+  const c = parseColor(pick ? pick.color : '#4CAF50');
+  if (c) { tintState.color = c; tintState.label = pick ? 'биом ' + pick.name : 'по умолчанию'; tintState.enabled = true; }
+  applyTints(); renderSelInfo();
+}
+$('#btnRes').onclick = () => { renderResReport(); resDlg.showModal(); };
+$('#resClose').onclick = () => resDlg.close();
+$('#pickZip').onclick = async () => {
+  if (window.showOpenFilePicker) {
+    try {
+      const [fh] = await showOpenFilePicker({ types: [{ description: 'Assets.zip', accept: { 'application/zip': ['.zip'] } }] });
+      const ok = await connect(async () => zipSource(await fh.getFile()));
+      if (ok) { try { await idb.set('src', fh); } catch (e) {} }
+    } catch (e) { if (e.name !== 'AbortError') $('#fZip').click(); }
+  } else $('#fZip').click();
+};
+$('#fZip').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) connect(() => zipSource(f)); };
+$('#pickDir').onclick = async () => {
+  if (window.showDirectoryPicker) {
+    try {
+      const dh = await showDirectoryPicker({ mode: 'read' });
+      const ok = await connect(() => handleSource(dh, resProg));
+      if (ok) { try { await idb.set('src', dh); } catch (e) {} }
+    } catch (e) { if (e.name !== 'AbortError') $('#fDir').click(); }
+  } else $('#fDir').click();
+};
+$('#fDir').onchange = e => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length) connect(async () => fileListSource(fl)); };
+$('#forget').onclick = async () => { try { await idb.del('src'); } catch (e) {} $('#restore').hidden = true; resProg(0, 'Сохранённый источник удалён (текущий остаётся подключённым до перезагрузки).'); };
+let pendingHandle = null;
+$('#restore').onclick = async () => {
+  const h = pendingHandle; if (!h) return;
+  try {
+    if ((await h.requestPermission({ mode: 'read' })) !== 'granted') { resProg(0, 'Доступ не предоставлен.'); return; }
+    $('#restore').hidden = true;
+    await connect(async () => h.kind === 'directory' ? handleSource(h, resProg) : zipSource(await h.getFile()));
+  } catch (e) { resProg(0, 'Ошибка: ' + e.message); }
+};
+async function restoreSaved(){
+  let h = null;
+  try { h = await idb.get('src'); } catch (e) {}
+  if (!h) { resDlg.showModal(); return; }
+  pendingHandle = h;
+  try {
+    const p = await h.queryPermission({ mode: 'read' });
+    if (p === 'granted') { resDlg.showModal(); await connect(async () => h.kind === 'directory' ? handleSource(h, resProg) : zipSource(await h.getFile())); return; }
+  } catch (e) {}
+  $('#restore').hidden = false; $('#restore').textContent = 'Восстановить доступ к «' + h.name + '»';
+  $('#resStatus').textContent = 'Найден ранее выбранный источник «' + h.name + '». Браузер требует подтвердить доступ.';
+  resDlg.showModal();
+}
+
+$('#btnWarn').onclick = () => { renderWarnings(); $('#warnDlg').showModal(); };
+$('#warnClose').onclick = () => $('#warnDlg').close();
+
+/* ===================== Управление ===================== */
+$('#layer').addEventListener('input', e => setLayer(+e.target.value));
+$('#prev').onclick = () => setLayer(state.layer - 1);
+$('#next').onclick = () => setLayer(state.layer + 1);
+for (const b of document.querySelectorAll('#modeSeg button')) b.onclick = () => setMode(b.dataset.m);
+$('#btnRuler').onclick = () => { state.ruler.on = !state.ruler.on; if (!state.ruler.on) state.ruler.a = state.ruler.b = null; updateRulerViz(); };
+$('#btnRulerReset').onclick = () => clearRuler(false);
+$('#btnCam').onclick = () => { if (fly.on) exitFly(); resetCamera(); };
+$('#btnLight').onclick = () => { light.lit = !light.lit; try { localStorage.setItem('pv.light', light.lit ? 'lit' : 'flat'); } catch (e) {} updateLighting(); };
+$('#btnFly').onclick = () => (fly.on ? exitFly() : enterFly());
+$('#btnFit').onclick = fit2D;
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+  if (document.querySelector('dialog[open]')) return;
+  if (fly.on) {
+    const a = FLYKEYS[e.code];
+    if (a) { fly.keys.add(a); e.preventDefault(); return; }
+    if (e.key === 'Shift') { fly.keys.add('boost'); return; }
+  }
+  if (e.code === 'KeyF' && !e.metaKey && !e.ctrlKey) { fly.on ? exitFly() : enterFly(); e.preventDefault(); return; }
+  if (fly.on && e.key === 'Escape') { exitFly(); return; }
+  if (e.key === '[' || e.key === 'PageDown') { setLayer(state.layer - 1); e.preventDefault(); }
+  else if (e.key === ']' || e.key === 'PageUp') { setLayer(state.layer + 1); e.preventDefault(); }
+  else if (e.code === 'KeyB') setBom(!bomOpen);
+  else if (e.code === 'KeyL') $('#btnLight').click();
+  else if (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К') $('#btnRuler').click();
+  else if (e.key === 'Escape') clearRuler(false);
+});
+
+addEventListener('keyup', e => {
+  const a = FLYKEYS[e.code]; if (a) fly.keys.delete(a);
+  if (e.key === 'Shift') fly.keys.delete('boost');
+});
+
+// разделитель панелей
+(() => {
+  const sp = $('#split'); let on = false;
+  sp.addEventListener('pointerdown', e => { on = true; sp.setPointerCapture(e.pointerId); });
+  sp.addEventListener('pointerup', () => { on = false; });
+  sp.addEventListener('pointermove', e => {
+    if (!on) return;
+    const r = $('#main').getBoundingClientRect(), f = Math.max(0.2, Math.min(0.8, (e.clientX - r.left) / r.width));
+    pane3.style.flex = f / (1 - f) + ''; pane2.style.flex = '1';
+  });
+})();
+
+autoTint(); updateLighting(); resize(); setMode('all'); updateResDot(); updateBuildInfo();
+restoreSaved();
+window.__pv = { state, parsePrefab, createResolver };
+})();
+</script>
+</body>
+</html>
